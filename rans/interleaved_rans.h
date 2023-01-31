@@ -2,7 +2,7 @@
 #define RECOIL_INTERLEAVED_RANS_H
 
 #include <array>
-#include "rans.h"
+#include "rans/rans.h"
 
 template <typename MyRans, int nInterleaved>
 class InterleavedRans {

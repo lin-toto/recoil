@@ -1,5 +1,6 @@
-#include "rans/rans.h"
+#include "rans/rans_encoder.h"
 
 int main() {
-    Rans64<16> rans;
+    RansEncoder enc((Rans64<16>()));
+
 }
