@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
-project(untitled)
+project(recoil)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_library(untitled test.cpp)
+add_executable(test test.cpp)

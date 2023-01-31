@@ -12,7 +12,7 @@ class Rans {
     static_assert(WriteBitCount <= sizeof(RansOutputType) * 8, "WriteBitCount cannot be greater than the size of RansOutputType");
 public:
     Rans () : state(RenormLowerBound) {}
-    Rans (RansStateType state) : state(state) {}
+    explicit Rans (RansStateType state) : state(state) {}
 protected:
     RansStateType state;
 
