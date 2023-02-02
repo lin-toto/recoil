@@ -61,7 +61,7 @@ namespace Recoil {
         MyRansCodedData flush() {
             auto ransIt = rans.rbegin();
             ransIt += nInterleaved - symbolBuffer.size() % nInterleaved - 1;
-            for (auto symbol = symbolBuffer.rbegin(); symbol != symbolBuffer.rbegin(); symbol++) {
+            for (auto symbol = symbolBuffer.rbegin(); symbol != symbolBuffer.rend(); symbol++) {
                 encodeSymbol(ransIt, symbol);
 
                 ransIt++;
