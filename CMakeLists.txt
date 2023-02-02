@@ -9,7 +9,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g ${CMAKE_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG ${CMAKE_CXX_FLAGS}")
 
 include_directories(
-        ${CMAKE_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}/include
         $ENV{INCLUDE_DIR}
 )
 link_directories(
