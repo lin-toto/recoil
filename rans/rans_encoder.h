@@ -5,6 +5,7 @@
 #include "rans/rans.h"
 #include "rans/rans_coded_data.h"
 #include <vector>
+#include <span>
 #include <ranges>
 #include <string>
 #include <variant>
@@ -20,8 +21,10 @@ class RansEncoder {
 public:
     explicit RansEncoder(std::array<MyRans, nInterleaved> rans) : rans(std::move(rans)) {}
 
-    // Buffer the values for encode with single shared CDF
-    void buffer(const std::vector<ValueType>& values, Cdf cdf) {
+    /*
+     * Buffer the values for encode with single shared CDF.
+     */
+    void buffer(std::span<ValueType> values, Cdf cdf) {
         symbolBuffer.reserve(symbolBuffer.size() + values.size());
 
         for (const auto& value: values) {
@@ -29,8 +32,10 @@ public:
         }
     }
 
-    // Buffer the values for encode with independent CDF for each symbol
-    void buffer(const std::vector<ValueType>& values, const std::vector<Cdf>& cdfs) {
+    /*
+     * Buffer the values for encode with independent CDF for each symbol.
+     */
+    void buffer(std::span<ValueType> values, std::span<Cdf> cdfs) {
         assert(values.size() == cdfs.size());
         symbolBuffer.reserve(symbolBuffer.size() + values.size());
 
@@ -39,13 +44,28 @@ public:
         }
     }
 
+    /*
+     * Flush the buffered values into the bitstream.
+     *
+     * We encode the symbols in reverse order so decoder produces them in the normal order.
+     * In interleaved rANS, we start with the last decoder if nSymbols % nInterleaved == 0,
+     * but when not so, align it with the correct entropy coder.
+     * We should be sending it to coder (nInterleaved - 1) - (nInterleaved - nSymbols % nInterleaved - 1).
+     *
+     * For example:
+     * Coders 0 1 2 3
+     * Input  0 1 2 3
+     *        4 5 6
+     * During encode we start with 6, so it goes to coder 3 - (4 - 6 % 4 - 1) = 2.
+     */
     MyRansCodedData flush() {
-        auto ransIt = rans.begin();
+        auto ransIt = rans.rbegin();
+        ransIt += nInterleaved - symbolBuffer.size() % nInterleaved - 1;
         for (auto& symbol : std::ranges::reverse_view(symbolBuffer)) {
             encodeSymbol(ransIt, symbol);
 
             ransIt++;
-            if (ransIt == rans.end()) ransIt = rans.begin();
+            if (ransIt == rans.rend()) ransIt = rans.rbegin();
         }
 
         MyRansCodedData result{ bitstream, rans };
