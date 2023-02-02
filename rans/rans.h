@@ -22,7 +22,8 @@ public:
 
     static constexpr bool oneShotRenorm = WriteBits >= ProbBits;
 
-    RansStateType state;
+    void reset() { state = RenormLowerBound; }
+    [[nodiscard]] RansStateType getState() const { return state; }
 
     void encPut(CdfType start, CdfType frequency) {
         state = ((state / frequency) << ProbBits) + (state % frequency) + start;
@@ -65,6 +66,9 @@ public:
             return true;
         } else return false;
     }
+
+protected:
+    RansStateType state;
 };
 
 template<BitCountType ProbBits, auto RenormLowerBound = 1ull << 31>

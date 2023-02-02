@@ -15,7 +15,7 @@ public:
     explicit Cdf (std::span<CdfType> cdf) : cdf(cdf) {}
 
     [[nodiscard]] inline std::optional<std::pair<CdfType, CdfType>> getStartAndFrequency (int value) const {
-        if (value >= 0 && value < cdf.size() - 1)
+        if (value >= 0 && value < cdf.size() - 1) [[likely]]
             return std::make_pair(cdf[value], cdf[value + 1] - cdf[value]);
         else
             return std::nullopt;
@@ -26,7 +26,7 @@ public:
             return v > probability;
         });
 
-        if (it != cdf.end())
+        if (it != cdf.end()) [[likely]]
             return it - cdf.begin();
         else
             return std::nullopt;
