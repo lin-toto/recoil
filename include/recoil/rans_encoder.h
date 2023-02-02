@@ -1,9 +1,9 @@
 #ifndef RECOIL_RANS_ENCODER_H
 #define RECOIL_RANS_ENCODER_H
 
-#include "rans/lib/cdf.h"
-#include "rans.h"
-#include "rans_coded_data.h"
+#include "recoil/lib/cdf.h"
+#include "recoil/rans.h"
+#include "recoil/rans_coded_data.h"
 #include <vector>
 #include <span>
 #include <string>

@@ -1,5 +1,5 @@
-#include "rans/rans_encoder.h"
-#include "rans/rans_decoder.h"
+#include "recoil/rans_encoder.h"
+#include "recoil/rans_decoder.h"
 
 #include <array>
 

@@ -1,8 +1,8 @@
 #ifndef RECOIL_RANS_DECODER_H
 #define RECOIL_RANS_DECODER_H
 
-#include "rans/lib/cdf.h"
-#include "rans.h"
+#include "recoil/lib/cdf.h"
+#include "recoil/rans.h"
 #include <span>
 #include <array>
 

@@ -1,7 +1,7 @@
 #ifndef RECOIL_RANS_H
 #define RECOIL_RANS_H
 
-#include "rans/lib/cdf.h"
+#include "recoil/lib/cdf.h"
 #include <cstdint>
 #include <type_traits>
 #include <optional>
