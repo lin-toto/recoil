@@ -6,15 +6,15 @@
 
 using namespace Recoil;
 
-const int numval = 5;
+const int numval = 10;
 
 std::array<CdfType, 5> cdfVal = {0, 1, 65533, 65534, 65535};
-std::array<ValueType, numval> values = {0, 1, 2, 2, 3};
+std::array<ValueType, numval> values = {0, 1, 2, 3, 0, 1, 2, 3, 1, 1};
 
 int main() {
     Cdf cdf(cdfVal);
 
-    RansEncoder enc((std::array{Rans32<16>()}));
+    RansEncoder enc((std::array{Rans32<16>(), Rans32<16>(), Rans32<16>(), Rans32<16>()}));
     enc.buffer(values, cdf);
 
     auto result = enc.flush();

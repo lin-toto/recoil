@@ -48,9 +48,9 @@ namespace Recoil {
          * Flush the buffered values into the bitstream.
          *
          * We encode the symbols in reverse order so decoder produces them in the normal order.
-         * In interleaved rANS, we start with the last decoder if nSymbols % nInterleaved == 0,
+         * In interleaved rANS, we start with the last decoder if (nSymbols - 1) % nInterleaved == 0,
          * but when not so, align it with the correct entropy coder.
-         * We should be sending it to coder (nInterleaved - 1) - (nInterleaved - nSymbols % nInterleaved - 1).
+         * We should be sending it to coder (nInterleaved - 1) - (nInterleaved - (nSymbols - 1) % nInterleaved - 1).
          *
          * For example:
          * Coders 0 1 2 3
@@ -60,7 +60,7 @@ namespace Recoil {
          */
         MyRansCodedData flush() {
             auto ransIt = rans.rbegin();
-            if constexpr (nInterleaved > 1) ransIt += nInterleaved - symbolBuffer.size() % nInterleaved - 1;
+            if constexpr (nInterleaved > 1) ransIt += nInterleaved - (symbolBuffer.size() - 1) % nInterleaved - 1;
             for (auto symbol = symbolBuffer.rbegin(); symbol != symbolBuffer.rend(); symbol++) {
                 encodeSymbol(*ransIt, *symbol);
 
