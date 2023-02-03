@@ -28,7 +28,7 @@ namespace Recoil {
             });
 
             if (it != cdf.end()) [[likely]]
-                return it - cdf.begin();
+                return it - cdf.begin() - 1;
             else
                 return std::nullopt;
         }

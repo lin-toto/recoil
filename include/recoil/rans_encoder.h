@@ -60,12 +60,14 @@ namespace Recoil {
          */
         MyRansCodedData flush() {
             auto ransIt = rans.rbegin();
-            ransIt += nInterleaved - symbolBuffer.size() % nInterleaved - 1;
+            if constexpr (nInterleaved > 1) ransIt += nInterleaved - symbolBuffer.size() % nInterleaved - 1;
             for (auto symbol = symbolBuffer.rbegin(); symbol != symbolBuffer.rend(); symbol++) {
-                encodeSymbol(ransIt, symbol);
+                encodeSymbol(*ransIt, *symbol);
 
-                ransIt++;
-                if (ransIt == rans.rend()) ransIt = rans.rbegin();
+                if constexpr (nInterleaved > 1) {
+                    ransIt++;
+                    if (ransIt == rans.rend()) ransIt = rans.rbegin();
+                }
             }
 
             MyRansCodedData result{bitstream, rans};
@@ -101,16 +103,16 @@ namespace Recoil {
             auto startAndFrequency = cdf.getStartAndFrequency(value);
             if (startAndFrequency.has_value()) {
                 auto [start, frequency] = startAndFrequency.value();
-                symbolBuffer.push_back({Symbol::Encoded, {start, frequency}});
+                symbolBuffer.push_back({Symbol::Encoded, typename Symbol::EncodedSymbol({start, frequency})});
             } else {
                 uint8_t bits = sizeof(ValueType) * 8 - __builtin_clz(value);
-                symbolBuffer.push_back({Symbol::Bypass, {value, bits}});
+                symbolBuffer.push_back({Symbol::Bypass, typename Symbol::BypassSymbol({value, bits})});
             }
         }
 
         void encodeSymbol(MyRans &encoder, const Symbol &symbol) {
             if (symbol.type == Symbol::Encoded) [[likely]] {
-                const auto &encodedSymbol = std::get<Symbol::EncodedSymbol>(symbol.symbol);
+                const auto &encodedSymbol = std::get<typename Symbol::EncodedSymbol>(symbol.symbol);
                 renorm(encoder, encodedSymbol.frequency);
 
                 encoder.encPut(encodedSymbol.start, encodedSymbol.frequency);
@@ -120,7 +122,7 @@ namespace Recoil {
         }
 
         void renorm(MyRans &encoder, CdfType frequency) {
-            if constexpr (encoder.oneShotRenorm) {
+            if constexpr (MyRans::oneShotRenorm) {
                 auto output = encoder.encRenormOnce(frequency);
                 if (output.has_value()) bitstream.push_back(output.value());
             } else {
