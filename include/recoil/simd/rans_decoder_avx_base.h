@@ -13,12 +13,12 @@ namespace Recoil {
     protected:
         using MyRansDecoder = RansDecoder<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved>;
 
-        static constexpr size_t RansPerBatch = sizeof(SimdDataType) / sizeof(RansStateType);
-        static constexpr size_t RansNBatch = NInterleaved / RansPerBatch;
+        static constexpr size_t RansBatchSize = sizeof(SimdDataType) / sizeof(RansStateType);
+        static constexpr size_t RansStepCount = NInterleaved / RansBatchSize;
 
-        using SimdArrayType = std::array<RansStateType, RansPerBatch>;
+        using SimdArrayType = std::array<RansStateType, RansBatchSize>;
 
-        static_assert(NInterleaved % RansPerBatch == 0, "AVX decoder must work on RansPerBatchxN streams");
+        static_assert(NInterleaved % RansBatchSize == 0, "AVX decoder must work on RansPerBatchxN streams");
         static_assert(MyRansDecoder::MyRans::oneShotRenorm, "Only one shot renorm decoders are supported by AVX decoder");
     public:
         using MyRansDecoder::MyRansDecoder;
@@ -49,11 +49,11 @@ namespace Recoil {
 
             {
                 // Step 2: do simd rANS decoding
-                std::array<Cdf, RansPerBatch> cdfs = {cdf, cdf, cdf, cdf, cdf, cdf, cdf, cdf};
+                std::array<Cdf, RansBatchSize> cdfs = {cdf, cdf, cdf, cdf, cdf, cdf, cdf, cdf};
                 auto ransSimds = createRansSimds();
 
                 for (; completedCount + NInterleaved <= count; completedCount += NInterleaved) {
-                    for (auto b = 0; b < RansNBatch; b++) {
+                    for (auto b = 0; b < RansStepCount; b++) {
                         auto& ransSimd = ransSimds[b];
                         auto probabilities = getProbabilities(ransSimd);
                         auto [bypass, symbols, starts, frequencies] = getSymbolsAndStartsAndFrequencies(probabilities, cdfs);
@@ -85,13 +85,13 @@ namespace Recoil {
             return result;
         }
     protected:
-        std::array<SimdDataType, RansNBatch> createRansSimds() {
-            std::array<SimdDataType, RansNBatch> ransSimds{};
+        std::array<SimdDataType, RansStepCount> createRansSimds() {
+            std::array<SimdDataType, RansStepCount> ransSimds{};
 
-            for (auto b = 0; b < RansNBatch; b++) {
+            for (auto b = 0; b < RansStepCount; b++) {
                 alignas(sizeof(SimdDataType)) SimdArrayType rans{};
-                for (auto i = 0; i < RansPerBatch; i++) {
-                    rans[i] = this->rans[b * RansPerBatch + i].state;
+                for (auto i = 0; i < RansBatchSize; i++) {
+                    rans[i] = this->rans[b * RansBatchSize + i].state;
                 }
                 ransSimds[b] = toSimd(rans);
             }
@@ -99,21 +99,21 @@ namespace Recoil {
             return ransSimds;
         };
 
-        void writeBackRansSimds(std::array<SimdDataType, RansNBatch> ransSimds) {
-            for (auto b = 0; b < RansNBatch; b++) {
+        void writeBackRansSimds(std::array<SimdDataType, RansStepCount> ransSimds) {
+            for (auto b = 0; b < RansStepCount; b++) {
                 auto rans = fromSimd(ransSimds[b]);
-                for (auto i = 0; i < RansPerBatch; i++) {
-                    this->rans[b * RansPerBatch + i].state = rans[i];
+                for (auto i = 0; i < RansBatchSize; i++) {
+                    this->rans[b * RansBatchSize + i].state = rans[i];
                 }
             }
         };
 
-        auto getSymbolsAndStartsAndFrequencies(const SimdDataType probabilitiesSimd, const std::array<Cdf, RansPerBatch> &cdfs) {
-            std::array<bool, RansPerBatch> bypass{};
+        auto getSymbolsAndStartsAndFrequencies(const SimdDataType probabilitiesSimd, const std::array<Cdf, RansBatchSize> &cdfs) {
+            std::array<bool, RansBatchSize> bypass{};
             alignas(sizeof(SimdDataType)) SimdArrayType symbols{}, starts{}, frequencies{};
             auto probabilities = fromSimd(probabilitiesSimd);
 
-            for (size_t i = 0; i < RansPerBatch; i++) {
+            for (size_t i = 0; i < RansBatchSize; i++) {
                 auto symbol = cdfs[i].findValue(probabilities[i]);
                 if (symbol.has_value()) [[likely]] {
                     bypass[i] = false;

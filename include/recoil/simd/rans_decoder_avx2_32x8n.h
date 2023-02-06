@@ -18,18 +18,18 @@ namespace Recoil {
             uint32_t, uint16_t, ProbBits, RenormLowerBound, 16, NInterleaved, u32x8> {
         using MyBase = RansDecoder_AVXBase<uint32_t, uint16_t, ProbBits, RenormLowerBound, 16, NInterleaved, u32x8>;
         using SimdArrayType = MyBase::SimdArrayType;
-        using MyBase::RansPerBatch, MyBase::RansNBatch;
+        using MyBase::RansBatchSize, MyBase::RansStepCount;
 
         static constexpr size_t WriteBits = 16;
     public:
         using MyBase::MyBase;
     protected:
-        [[nodiscard]] u32x8 toSimd(const SimdArrayType &val) const override  {
+        [[nodiscard]] u32x8 toSimd(const SimdArrayType &val) const override {
             return _mm256_load_si256(reinterpret_cast<const u32x8*>(val.begin()));
         }
 
         [[nodiscard]] SimdArrayType fromSimd(const u32x8 simd) const override {
-            std::array<uint32_t, RansPerBatch> val;
+            std::array<uint32_t, RansBatchSize> val;
             _mm256_store_si256(reinterpret_cast<u32x8*>(val.begin()), simd);
             return val;
         }
@@ -46,10 +46,10 @@ namespace Recoil {
             ransSimd = _mm256_add_epi64(ransSimd, lastProbabilities);
             ransSimd = _mm256_sub_epi64(ransSimd, lastStarts);
 
-            // Check renormalization flags
-            u32x8 renormMaskSimd = _mm256_cmpgt_epi32(
-                    _mm256_set1_epi32(RenormLowerBound - 0x80000000),
-                    _mm256_xor_si256(ransSimd, _mm256_set1_epi32(0x80000000)));
+            // Check renormalization flags; dirty hack because unsigned comparison is not supported in AVX2
+            static const u32x8 renormLowerBound = _mm256_set1_epi32(RenormLowerBound - 0x80000000);
+            static const u32x8 signFlag = _mm256_set1_epi32(static_cast<int>(0x80000000u));
+            u32x8 renormMaskSimd = _mm256_cmpgt_epi32(renormLowerBound,_mm256_xor_si256(ransSimd, signFlag));
 
             auto renormMask = _mm256_movemask_epi8(renormMaskSimd);
             if (renormMask) {
@@ -60,7 +60,7 @@ namespace Recoil {
                  */
 
                 auto renormCount = std::popcount(static_cast<unsigned int>(renormMask));
-                auto bitstreamPtr = reinterpret_cast<const __m128i*>(&(*this->bitstreamReverseIt) - RansPerBatch + 1);
+                auto bitstreamPtr = reinterpret_cast<const __m128i*>(&(*this->bitstreamReverseIt) - RansBatchSize + 1);
 
                 // Use _mm_loadu_si128 because it does not require memory alignment.
                 u32x8 nextBitstream = _mm256_cvtepu16_epi32(_mm_loadu_si128(bitstreamPtr));
