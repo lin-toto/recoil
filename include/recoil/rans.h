@@ -20,6 +20,8 @@ namespace Recoil {
                       "WriteBits cannot be greater than the size of RansBitstreamType");
         static_assert(ProbBits <= 16, "ProbBits must be smaller or equal to 16");
     public:
+        RansStateType state;
+
         Rans() : state(RenormLowerBound) {}
 
         explicit Rans(RansStateType state) : state(state) {}
@@ -27,8 +29,6 @@ namespace Recoil {
         static constexpr const bool oneShotRenorm = WriteBits >= ProbBits;
 
         void reset() { state = RenormLowerBound; }
-
-        [[nodiscard]] RansStateType getState() const { return state; }
 
         void encPut(CdfType start, CdfType frequency) {
             state = ((state / frequency) << ProbBits) + (state % frequency) + start;
@@ -38,7 +38,7 @@ namespace Recoil {
             state = (state << bits) | value;
         }
 
-        std::optional<RansBitstreamType> encRenormOnce(CdfType frequency) {
+        std::optional<RansBitstreamType> encRenormOnce(const CdfType frequency) {
             const RansStateType renormUpperBound = ((RenormLowerBound >> ProbBits) << WriteBits) * frequency;
             if (state >= renormUpperBound) {
                 const RansBitstreamType mask = (1ul << WriteBits) - 1;
@@ -48,32 +48,29 @@ namespace Recoil {
             } else return std::nullopt;
         }
 
-        CdfType decGetProbability() {
-            const RansStateType mask = (1ul << ProbBits) - 1;
+        [[nodiscard]] CdfType decGetProbability() const {
+            constexpr RansStateType mask = (1ul << ProbBits) - 1;
             return state & mask;
         }
 
-        ValueType decGetBypass(BitCountType nbits) {
-            RansStateType mask = (1ul << nbits) - 1;
+        ValueType decGetBypass(const BitCountType nbits) {
+            const RansStateType mask = (1ul << nbits) - 1;
             auto value = static_cast<ValueType>(state & mask);
-            state >>= nbits;
+            state >>= nbits; // FIXME: should be const function
             return value;
         }
 
-        void decAdvanceSymbol(CdfType lastStart, CdfType lastFrequency) {
-            const RansStateType mask = (1ul << ProbBits) - 1;
+        void decAdvanceSymbol(const CdfType lastStart, const CdfType lastFrequency) {
+            constexpr RansStateType mask = (1ul << ProbBits) - 1;
             state = (state >> ProbBits) * lastFrequency + (state & mask) - lastStart;
         }
 
-        bool decRenormOnce(RansBitstreamType next) {
+        bool decRenormOnce(const RansBitstreamType next) {
             if (state < RenormLowerBound) {
                 state = (state << WriteBits) | next;
                 return true;
             } else return false;
         }
-
-    protected:
-        RansStateType state;
     };
 
     template<BitCountType ProbBits, auto RenormLowerBound = 1ull << 31>

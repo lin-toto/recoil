@@ -13,18 +13,18 @@
 namespace Recoil {
     template<typename RansStateType, typename RansBitstreamType,
             BitCountType ProbBits, RansStateType RenormLowerBound, BitCountType WriteBits,
-            size_t nInterleaved>
+            size_t NInterleaved>
     class RansEncoder {
         using MyRans = Rans<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
         using MyRansCodedData = RansCodedData<
-                RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, nInterleaved>;
+                RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved>;
     public:
-        explicit RansEncoder(std::array<MyRans, nInterleaved> rans) : rans(std::move(rans)) {}
+        explicit RansEncoder(std::array<MyRans, NInterleaved> rans) : rans(std::move(rans)) {}
 
         /*
          * Buffer the values for encode with single shared CDF.
          */
-        void buffer(std::span<ValueType> values, Cdf cdf) {
+        void buffer(const std::span<ValueType> values, const Cdf cdf) {
             symbolBuffer.reserve(symbolBuffer.size() + values.size());
 
             for (const auto &value: values) {
@@ -35,7 +35,7 @@ namespace Recoil {
         /*
          * Buffer the values for encode with independent CDF for each symbol.
          */
-        void buffer(std::span<ValueType> values, std::span<Cdf> cdfs) {
+        void buffer(const std::span<ValueType> values, const std::span<Cdf> cdfs) {
             assert(values.size() == cdfs.size());
             symbolBuffer.reserve(symbolBuffer.size() + values.size());
 
@@ -48,9 +48,9 @@ namespace Recoil {
          * Flush the buffered values into the bitstream.
          *
          * We encode the symbols in reverse order so decoder produces them in the normal order.
-         * In interleaved rANS, we start with the last decoder if (nSymbols - 1) % nInterleaved == 0,
+         * In interleaved rANS, we start with the last decoder if (nSymbols - 1) % NInterleaved == 0,
          * but when not so, align it with the correct entropy coder.
-         * We should be sending it to coder (nInterleaved - 1) - (nInterleaved - (nSymbols - 1) % nInterleaved - 1).
+         * We should be sending it to coder (NInterleaved - 1) - (NInterleaved - (nSymbols - 1) % NInterleaved - 1).
          *
          * For example:
          * Coders 0 1 2 3
@@ -60,11 +60,11 @@ namespace Recoil {
          */
         MyRansCodedData flush() {
             auto ransIt = rans.rbegin();
-            if constexpr (nInterleaved > 1) ransIt += nInterleaved - (symbolBuffer.size() - 1) % nInterleaved - 1;
+            if constexpr (NInterleaved > 1) ransIt += NInterleaved - (symbolBuffer.size() - 1) % NInterleaved - 1;
             for (auto symbol = symbolBuffer.rbegin(); symbol != symbolBuffer.rend(); symbol++) {
                 encodeSymbol(*ransIt, *symbol);
 
-                if constexpr (nInterleaved > 1) {
+                if constexpr (NInterleaved > 1) {
                     ransIt++;
                     if (ransIt == rans.rend()) ransIt = rans.rbegin();
                 }
@@ -95,11 +95,11 @@ namespace Recoil {
             std::variant<EncodedSymbol, BypassSymbol> symbol;
         };
 
-        std::array<MyRans, nInterleaved> rans;
+        std::array<MyRans, NInterleaved> rans;
         std::vector<RansBitstreamType> bitstream;
         std::vector<Symbol> symbolBuffer;
 
-        void bufferSymbol(ValueType value, Cdf cdf) {
+        void bufferSymbol(const ValueType value, const Cdf cdf) {
             auto startAndFrequency = cdf.getStartAndFrequency(value);
             if (startAndFrequency.has_value()) {
                 auto [start, frequency] = startAndFrequency.value();
@@ -121,7 +121,7 @@ namespace Recoil {
             }
         }
 
-        void renorm(MyRans &encoder, CdfType frequency) {
+        void renorm(MyRans &encoder, const CdfType frequency) {
             if constexpr (MyRans::oneShotRenorm) {
                 auto output = encoder.encRenormOnce(frequency);
                 if (output.has_value()) bitstream.push_back(output.value());
