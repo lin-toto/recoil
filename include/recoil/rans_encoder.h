@@ -6,6 +6,7 @@
 #include "recoil/rans_coded_data.h"
 #include <vector>
 #include <span>
+#include <bit>
 #include <string>
 #include <variant>
 #include <cassert>
@@ -105,7 +106,9 @@ namespace Recoil {
                 auto [start, frequency] = startAndFrequency.value();
                 symbolBuffer.push_back({Symbol::Encoded, typename Symbol::EncodedSymbol({start, frequency})});
             } else {
-                uint8_t bits = sizeof(ValueType) * 8 - __builtin_clz(value);
+                // TODO: handle when value < 0
+
+                uint8_t bits = sizeof(ValueType) * 8 - std::countl_zero(static_cast<unsigned int>(value));
                 symbolBuffer.push_back({Symbol::Bypass, typename Symbol::BypassSymbol({value, bits})});
             }
         }
