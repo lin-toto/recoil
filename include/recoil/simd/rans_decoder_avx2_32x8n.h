@@ -46,8 +46,8 @@ namespace Recoil {
                     const u32x8 lastStarts, const u32x8 lastFrequencies) override {
             // Advance Symbols
             ransSimd = _mm256_mullo_epi32(_mm256_srli_epi32(ransSimd, ProbBits), lastFrequencies);
-            ransSimd = _mm256_add_epi64(ransSimd, lastProbabilities);
-            ransSimd = _mm256_sub_epi64(ransSimd, lastStarts);
+            ransSimd = _mm256_add_epi32(ransSimd, lastProbabilities);
+            ransSimd = _mm256_sub_epi32(ransSimd, lastStarts);
 
             // Check renormalization flags; dirty hack because unsigned comparison is not supported in AVX2
             static const u32x8 renormLowerBound = _mm256_set1_epi32(RenormLowerBound - 0x80000000);
