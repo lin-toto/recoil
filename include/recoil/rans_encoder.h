@@ -12,7 +12,7 @@
 #include <cassert>
 
 namespace Recoil {
-    template<typename RansStateType, typename RansBitstreamType,
+    template<UnsignedType RansStateType, UnsignedType RansBitstreamType,
             BitCountType ProbBits, RansStateType RenormLowerBound, BitCountType WriteBits,
             size_t NInterleaved>
     class RansEncoder {

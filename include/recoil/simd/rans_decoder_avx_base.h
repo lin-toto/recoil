@@ -5,9 +5,16 @@
 #include <array>
 
 namespace Recoil {
-    template<typename RansStateType, typename RansBitstreamType,
+    namespace {
+        template <typename T>
+        concept SimdDataTypeWrapperConcept = requires(T) {
+            { typename T::SimdDataType{} };
+        };
+    }
+
+    template<UnsignedType RansStateType, UnsignedType RansBitstreamType,
             BitCountType ProbBits, RansStateType RenormLowerBound, BitCountType WriteBits,
-            size_t NInterleaved, typename SimdDataTypeWrapper>
+            size_t NInterleaved, SimdDataTypeWrapperConcept SimdDataTypeWrapper>
     class RansDecoder_AVXBase : public RansDecoder<
             RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved> {
     protected:

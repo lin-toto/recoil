@@ -10,12 +10,13 @@ namespace Recoil {
     using ValueType = int16_t;
     using BitCountType = uint8_t;
 
-    template<typename RansStateType, typename RansBitstreamType,
+    template<class T>
+    concept UnsignedType = std::is_unsigned_v<T>;
+
+    template<UnsignedType RansStateType, UnsignedType RansBitstreamType,
             BitCountType ProbBits, RansStateType RenormLowerBound, BitCountType WriteBits = 8 *
                                                                                             sizeof(RansBitstreamType)>
     class Rans {
-        static_assert(std::is_unsigned_v<RansStateType>, "RansStateType must be an unsigned type");
-        static_assert(std::is_unsigned_v<RansBitstreamType>, "RansStateType must be an unsigned type");
         static_assert(WriteBits <= sizeof(RansBitstreamType) * 8,
                       "WriteBits cannot be greater than the size of RansBitstreamType");
         static_assert(ProbBits <= 16, "ProbBits must be smaller or equal to 16");
