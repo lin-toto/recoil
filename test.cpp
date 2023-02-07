@@ -7,13 +7,30 @@
 
 using namespace Recoil;
 
-const int numval = 10;
+const int numval = 83;
 
 std::array<CdfType, 5> cdfVal = {0, 1, 65533, 65534, 65535};
-std::array<ValueType, numval> values = {0, 1, 2, 3, 0, 1, 2, 3, 1, 1};
+std::array<ValueType, numval> values = {
+        0, 1, 2, 3, 2, 3, 0, 0,
+        1, 1, 2, 3, 0, 1, 2, 3,
+        0, 1, 2, 3, 2, 3, 0, 0,
+        1, 1, 2, 3, 0, 1, 2, 3,
+        0, 1, 2, 3, 2, 3, 0, 0,
+        1, 1, 2, 3, 0, 1, 2, 3,
+        0, 1, 2, 3, 2, 3, 0, 0,
+        1, 1, 2, 3, 0, 1, 2, 3,
+        0, 1, 2, 3, 2, 3, 0, 0,
+        1, 1, 2, 3, 0, 1, 2, 3,
+        1, 2, 3
+};
 
 int main() {
     Cdf cdf(cdfVal);
+
+    for (int i = 0; i < values.size(); i ++) {
+        std::cout << values[i] << " ";
+    }
+    std::cout << std::endl;
 
     RansEncoder enc((std::array{
         Rans32<16>(), Rans32<16>(), Rans32<16>(), Rans32<16>(),
@@ -23,19 +40,21 @@ int main() {
 
     auto result = enc.flush();
 
-    RansDecoder dec(std::span{result.bitstream}, result.finalRans);
+    RansDecoder dec((std::span{result.bitstream}), result.finalRans);
     auto decoded = dec.decode(cdf, numval);
 
     for (int i = 0; i < decoded.size(); i ++) {
-        std::cout << decoded[i] << std::endl;
+        std::cout << decoded[i] << " ";
     }
+    std::cout << std::endl;
 
-    RansDecoder_AVX2_32x8n dec2(std::span{result.bitstream}, result.finalRans);
+    RansDecoder_AVX2_32x8n dec2((std::span{result.bitstream}), result.finalRans);
     auto decoded2 = dec2.decode(cdf, numval);
 
     for (int i = 0; i < decoded2.size(); i ++) {
-        std::cout << decoded2[i] << std::endl;
+        std::cout << decoded2[i] << " ";
     }
+    std::cout << std::endl;
 
     return 0;
 }

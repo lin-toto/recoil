@@ -7,11 +7,12 @@
 namespace Recoil {
     template<typename RansStateType, typename RansBitstreamType,
             BitCountType ProbBits, RansStateType RenormLowerBound, BitCountType WriteBits,
-            size_t NInterleaved, typename SimdDataType>
+            size_t NInterleaved, typename SimdDataTypeWrapper>
     class RansDecoder_AVXBase : public RansDecoder<
             RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved> {
     protected:
         using MyRansDecoder = RansDecoder<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved>;
+        using SimdDataType = typename SimdDataTypeWrapper::SimdDataType;
 
         static constexpr size_t RansBatchSize = sizeof(SimdDataType) / sizeof(RansStateType);
         static constexpr size_t RansStepCount = NInterleaved / RansBatchSize;
@@ -50,16 +51,21 @@ namespace Recoil {
             {
                 // Step 2: do simd rANS decoding
                 std::array<Cdf, RansBatchSize> cdfs = {cdf, cdf, cdf, cdf, cdf, cdf, cdf, cdf};
-                auto ransSimds = createRansSimds();
+
+                SimdDataType ransSimds[RansStepCount];
+                createRansSimds(ransSimds);
 
                 for (; completedCount + NInterleaved <= count; completedCount += NInterleaved) {
                     for (auto b = 0; b < RansStepCount; b++) {
                         auto& ransSimd = ransSimds[b];
-                        auto probabilities = getProbabilities(ransSimd);
-                        auto [bypass, symbols, starts, frequencies] = getSymbolsAndStartsAndFrequencies(probabilities, cdfs);
+                        auto probabilitiesSimd = getProbabilities(ransSimd);
+                        auto [bypass, symbolsSimd, startsSimd, frequenciesSimd] = getSymbolsAndStartsAndFrequencies(probabilitiesSimd, cdfs);
                         // TODO: if probability is a bypass sentinel, handle as bypass symbol
 
-                        renorm(ransSimd, probabilities, starts, frequencies);
+                        renorm(ransSimd, probabilitiesSimd, startsSimd, frequenciesSimd);
+
+                        auto symbols = fromSimd(symbolsSimd);
+                        result.insert(result.end(), symbols.begin(), symbols.end());
                     }
                 }
 
@@ -85,9 +91,7 @@ namespace Recoil {
             return result;
         }
     protected:
-        std::array<SimdDataType, RansStepCount> createRansSimds() {
-            std::array<SimdDataType, RansStepCount> ransSimds{};
-
+        void createRansSimds(SimdDataType* ransSimds) {
             for (auto b = 0; b < RansStepCount; b++) {
                 alignas(sizeof(SimdDataType)) SimdArrayType rans{};
                 for (auto i = 0; i < RansBatchSize; i++) {
@@ -95,11 +99,9 @@ namespace Recoil {
                 }
                 ransSimds[b] = toSimd(rans);
             }
-
-            return ransSimds;
         };
 
-        void writeBackRansSimds(std::array<SimdDataType, RansStepCount> ransSimds) {
+        void writeBackRansSimds(SimdDataType *ransSimds) {
             for (auto b = 0; b < RansStepCount; b++) {
                 auto rans = fromSimd(ransSimds[b]);
                 for (auto i = 0; i < RansBatchSize; i++) {

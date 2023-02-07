@@ -11,12 +11,15 @@
 namespace Recoil {
     namespace {
         using u32x8 = __m256i;
+        struct u32x8_wrapper {
+            using SimdDataType = u32x8;
+        };
     }
 
     template<BitCountType ProbBits, uint32_t RenormLowerBound, size_t NInterleaved>
     class RansDecoder_AVX2_32x8n : public RansDecoder_AVXBase<
-            uint32_t, uint16_t, ProbBits, RenormLowerBound, 16, NInterleaved, u32x8> {
-        using MyBase = RansDecoder_AVXBase<uint32_t, uint16_t, ProbBits, RenormLowerBound, 16, NInterleaved, u32x8>;
+            uint32_t, uint16_t, ProbBits, RenormLowerBound, 16, NInterleaved, u32x8_wrapper> {
+        using MyBase = RansDecoder_AVXBase<uint32_t, uint16_t, ProbBits, RenormLowerBound, 16, NInterleaved, u32x8_wrapper>;
         using SimdArrayType = MyBase::SimdArrayType;
         using MyBase::RansBatchSize, MyBase::RansStepCount;
 
@@ -29,14 +32,14 @@ namespace Recoil {
         }
 
         [[nodiscard]] SimdArrayType fromSimd(const u32x8 simd) const override {
-            std::array<uint32_t, RansBatchSize> val;
+            alignas(32) std::array<uint32_t, RansBatchSize> val;
             _mm256_store_si256(reinterpret_cast<u32x8*>(val.begin()), simd);
             return val;
         }
 
         [[nodiscard]] u32x8 getProbabilities(const u32x8 ransSimd) const override {
             static const u32x8 probabilityMask = _mm256_set1_epi32((1 << ProbBits) - 1);
-            return _mm256_and_epi32(ransSimd, probabilityMask);
+            return _mm256_and_si256(ransSimd, probabilityMask);
         }
 
         void renorm(u32x8 &ransSimd, const u32x8 lastProbabilities,
@@ -51,7 +54,7 @@ namespace Recoil {
             static const u32x8 signFlag = _mm256_set1_epi32(static_cast<int>(0x80000000u));
             u32x8 renormMaskSimd = _mm256_cmpgt_epi32(renormLowerBound,_mm256_xor_si256(ransSimd, signFlag));
 
-            auto renormMask = _mm256_movemask_epi8(renormMaskSimd);
+            auto renormMask = _mm256_movemask_ps(reinterpret_cast<__m256>(renormMaskSimd));
             if (renormMask) {
                 /*            <--------------------------vv
                  * Bitstream: 01 23 45 67 89 ab cd ef 01 23 45 67 89 ab cd ef
