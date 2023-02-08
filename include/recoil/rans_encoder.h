@@ -14,7 +14,8 @@
 namespace Recoil {
     template<UnsignedType RansStateType, UnsignedType RansBitstreamType,
             BitCountType ProbBits, RansStateType RenormLowerBound, BitCountType WriteBits,
-            size_t NInterleaved>
+            size_t NInterleaved,
+            bool RecordIntermediateStates = false, UnsignedType RansIntermediateStateType = RansStateType>
     class RansEncoder {
         using MyRans = Rans<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
         using MyRansCodedData = RansCodedData<
@@ -62,6 +63,7 @@ namespace Recoil {
         MyRansCodedData flush() {
             auto ransIt = rans.rbegin();
             if constexpr (NInterleaved > 1) ransIt += NInterleaved - (symbolBuffer.size() - 1) % NInterleaved - 1;
+
             for (auto symbol = symbolBuffer.rbegin(); symbol != symbolBuffer.rend(); symbol++) {
                 encodeSymbol(*ransIt, *symbol);
 
@@ -72,12 +74,17 @@ namespace Recoil {
             }
 
             MyRansCodedData result{bitstream, rans};
-
-            bitstream.clear();
-            symbolBuffer.clear();
-            std::for_each(rans.begin(), rans.end(), [](MyRans &r) { r.reset(); });
+            reset();
 
             return result;
+        }
+
+        void reset() {
+            bitstream.clear();
+            symbolBuffer.clear();
+            if constexpr (RecordIntermediateStates) intermediateStates.clear();
+            std::for_each(rans.begin(), rans.end(), [](MyRans &r) { r.reset(); });
+            symbolCounter = 0;
         }
 
     protected:
@@ -90,33 +97,51 @@ namespace Recoil {
                 uint8_t bits;
             };
 
+            unsigned int symbolId;
             enum {
                 Encoded, Bypass
             } type;
             std::variant<EncodedSymbol, BypassSymbol> symbol;
         };
 
+        struct EncoderIntermediateState {
+            RansIntermediateStateType intermediateState;
+            unsigned int symbolId;
+        };
+
         std::array<MyRans, NInterleaved> rans;
         std::vector<RansBitstreamType> bitstream;
         std::vector<Symbol> symbolBuffer;
+        std::vector<EncoderIntermediateState> intermediateStates;
+        unsigned int symbolCounter = 0;
 
         void bufferSymbol(const ValueType value, const Cdf cdf) {
             auto startAndFrequency = cdf.getStartAndFrequency(value);
             if (startAndFrequency.has_value()) {
                 auto [start, frequency] = startAndFrequency.value();
-                symbolBuffer.push_back({Symbol::Encoded, typename Symbol::EncodedSymbol({start, frequency})});
+                symbolBuffer.push_back({symbolCounter, Symbol::Encoded, typename Symbol::EncodedSymbol({start, frequency})});
             } else {
                 // TODO: handle when value < 0
 
                 uint8_t bits = sizeof(ValueType) * 8 - std::countl_zero(static_cast<unsigned int>(value));
-                symbolBuffer.push_back({Symbol::Bypass, typename Symbol::BypassSymbol({value, bits})});
+                symbolBuffer.push_back({symbolCounter, Symbol::Bypass, typename Symbol::BypassSymbol({value, bits})});
             }
+
+            symbolCounter++;
         }
 
         void encodeSymbol(MyRans &encoder, const Symbol &symbol) {
             if (symbol.type == Symbol::Encoded) [[likely]] {
                 const auto &encodedSymbol = std::get<typename Symbol::EncodedSymbol>(symbol.symbol);
-                renorm(encoder, encodedSymbol.frequency);
+                bool renormed = renorm(encoder, encodedSymbol.frequency);
+                if constexpr (RecordIntermediateStates) {
+                    if (renormed) {
+                        intermediateStates.push_back({
+                            static_cast<RansIntermediateStateType>(encoder.state),
+                            symbol.symbolId
+                        });
+                    }
+                }
 
                 encoder.encPut(encodedSymbol.start, encodedSymbol.frequency);
             } else {
@@ -124,16 +149,24 @@ namespace Recoil {
             }
         }
 
-        void renorm(MyRans &encoder, const CdfType frequency) {
+        /*
+         * Returns boolean representing if renormalization has occured.
+         */
+        bool renorm(MyRans &encoder, const CdfType frequency) {
+            auto output = encoder.encRenormOnce(frequency);
             if constexpr (MyRans::oneShotRenorm) {
-                auto output = encoder.encRenormOnce(frequency);
-                if (output.has_value()) bitstream.push_back(output.value());
+                if (output.has_value()) {
+                    bitstream.push_back(output.value());
+                }
+                return output.has_value();
             } else {
-                auto output = encoder.encRenormOnce(frequency);
+                bool renormFlag = false;
                 while (output.has_value()) {
+                    renormFlag = true;
                     bitstream.push_back(output.value());
                     output = encoder.encRenormOnce(frequency);
                 }
+                return renormFlag;
             }
         }
     };
