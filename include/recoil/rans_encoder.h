@@ -97,7 +97,7 @@ namespace Recoil {
                 uint8_t bits;
             };
 
-            unsigned int symbolId;
+            size_t symbolId;
             enum {
                 Encoded, Bypass
             } type;
@@ -106,14 +106,16 @@ namespace Recoil {
 
         struct EncoderIntermediateState {
             RansIntermediateStateType intermediateState;
-            unsigned int symbolId;
+            size_t symbolId;
+
+            [[nodiscard]] size_t encoderId () const { return symbolId % NInterleaved; }
         };
 
         std::array<MyRans, NInterleaved> rans;
         std::vector<RansBitstreamType> bitstream;
         std::vector<Symbol> symbolBuffer;
         std::vector<EncoderIntermediateState> intermediateStates;
-        unsigned int symbolCounter = 0;
+        size_t symbolCounter = 0;
 
         void bufferSymbol(const ValueType value, const Cdf cdf) {
             auto startAndFrequency = cdf.getStartAndFrequency(value);
