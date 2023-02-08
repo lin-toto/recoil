@@ -10,7 +10,7 @@
 namespace Recoil {
     template<UnsignedType RansStateType, UnsignedType RansBitstreamType,
             BitCountType ProbBits, RansStateType RenormLowerBound, BitCountType WriteBits,
-            unsigned int NInterleaved>
+            size_t NInterleaved>
     class RansDecoder {
     protected:
         using MyRans = Rans<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;

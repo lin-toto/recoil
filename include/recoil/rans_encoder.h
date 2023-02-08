@@ -14,7 +14,7 @@
 namespace Recoil {
     template<UnsignedType RansStateType, UnsignedType RansBitstreamType,
             BitCountType ProbBits, RansStateType RenormLowerBound, BitCountType WriteBits,
-            unsigned int NInterleaved,
+            size_t NInterleaved,
             bool RecordIntermediateStates = false, UnsignedType RansIntermediateStateType = RansStateType>
     class RansEncoder {
         using MyRans = Rans<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;

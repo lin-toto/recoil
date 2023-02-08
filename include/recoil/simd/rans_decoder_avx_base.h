@@ -14,7 +14,7 @@ namespace Recoil {
 
     template<UnsignedType RansStateType, UnsignedType RansBitstreamType,
             BitCountType ProbBits, RansStateType RenormLowerBound, BitCountType WriteBits,
-            unsigned int NInterleaved, SimdDataTypeWrapperConcept SimdDataTypeWrapper>
+            size_t NInterleaved, SimdDataTypeWrapperConcept SimdDataTypeWrapper>
     class RansDecoder_AVXBase : public RansDecoder<
             RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved> {
     protected:
