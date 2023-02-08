@@ -16,7 +16,7 @@ namespace Recoil {
         };
     }
 
-    template<BitCountType ProbBits, uint32_t RenormLowerBound, size_t NInterleaved>
+    template<BitCountType ProbBits, uint32_t RenormLowerBound, unsigned int NInterleaved>
     class RansDecoder_AVX2_32x8n : public RansDecoder_AVXBase<
             uint32_t, uint16_t, ProbBits, RenormLowerBound, 16, NInterleaved, u32x8_wrapper> {
         using MyBase = RansDecoder_AVXBase<uint32_t, uint16_t, ProbBits, RenormLowerBound, 16, NInterleaved, u32x8_wrapper>;
