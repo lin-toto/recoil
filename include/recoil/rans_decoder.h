@@ -12,6 +12,8 @@ namespace Recoil {
             BitCountType ProbBits, RansStateType RenormLowerBound, BitCountType WriteBits,
             size_t NInterleaved>
     class RansDecoder {
+        template<UnsignedType T, UnsignedType, BitCountType, T, BitCountType, size_t, size_t>
+        friend class RansSplitDecoder;
     protected:
         using MyRans = Rans<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
     public:
@@ -80,16 +82,15 @@ namespace Recoil {
             auto symbol = cdf.findValue(probability);
             if (symbol.has_value()) [[likely]] {
                 auto [start, frequency] = cdf.getStartAndFrequency(symbol.value()).value();
-                renorm(decoder, start, frequency);
+                decoder.decAdvanceSymbol(start, frequency);
+                renorm(decoder);
                 return symbol.value();
             } else {
                 // TODO: if probability is a bypass sentinel, handle as bypass symbol
             }
         }
 
-        void renorm(MyRans &decoder, const CdfType lastStart, const CdfType lastFrequency) {
-            decoder.decAdvanceSymbol(lastStart, lastFrequency);
-
+        void renorm(MyRans &decoder) {
             if (bitstreamReverseIt == bitstream.rend()) [[unlikely]] {
                 // TODO: notify outside about bitstream end, so decode can be terminated
                 return;

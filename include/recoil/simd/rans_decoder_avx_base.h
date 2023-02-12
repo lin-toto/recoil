@@ -69,7 +69,8 @@ namespace Recoil {
                         auto [bypass, symbolsSimd, startsSimd, frequenciesSimd] = getSymbolsAndStartsAndFrequencies(probabilitiesSimd, cdfs);
                         // TODO: if probability is a bypass sentinel, handle as bypass symbol
 
-                        renorm(ransSimd, probabilitiesSimd, startsSimd, frequenciesSimd);
+                        advanceSymbol(ransSimd, probabilitiesSimd, startsSimd, frequenciesSimd);
+                        renorm(ransSimd);
 
                         auto symbols = fromSimd(symbolsSimd);
                         result.insert(result.end(), symbols.begin(), symbols.end());
@@ -140,8 +141,9 @@ namespace Recoil {
         virtual SimdArrayType fromSimd(SimdDataType simd) const = 0;
 
         virtual SimdDataType getProbabilities(SimdDataType ransSimd) const = 0;
-        virtual void renorm(SimdDataType &ransSimd, SimdDataType lastProbabilities, SimdDataType lastStarts,
-                            SimdDataType lastFrequencies) = 0;
+        virtual void advanceSymbol(SimdDataType ransSimd, SimdDataType lastProbabilities,
+                                   SimdDataType lastStarts, SimdDataType lastFrequencies) = 0;
+        virtual void renorm(SimdDataType &ransSimd) = 0;
     };
 }
 

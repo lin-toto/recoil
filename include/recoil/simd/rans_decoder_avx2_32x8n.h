@@ -42,13 +42,15 @@ namespace Recoil {
             return _mm256_and_si256(ransSimd, probabilityMask);
         }
 
-        void renorm(u32x8 &ransSimd, const u32x8 lastProbabilities,
-                    const u32x8 lastStarts, const u32x8 lastFrequencies) override {
+        void advanceSymbol(u32x8 &ransSimd, const u32x8 lastProbabilities,
+                           const u32x8 lastStarts, const u32x8 lastFrequencies) override {
             // Advance Symbols
             ransSimd = _mm256_mullo_epi32(_mm256_srli_epi32(ransSimd, ProbBits), lastFrequencies);
             ransSimd = _mm256_add_epi32(ransSimd, lastProbabilities);
             ransSimd = _mm256_sub_epi32(ransSimd, lastStarts);
+        }
 
+        void renorm(u32x8 &ransSimd) override {
             // Check renormalization flags; dirty hack because unsigned comparison is not supported in AVX2
             static const u32x8 renormLowerBound = _mm256_set1_epi32(RenormLowerBound - 0x80000000);
             static const u32x8 signFlag = _mm256_set1_epi32(static_cast<int>(0x80000000u));
