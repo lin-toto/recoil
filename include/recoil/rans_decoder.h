@@ -6,8 +6,11 @@
 #include <vector>
 #include <span>
 #include <array>
+#include <exception>
 
 namespace Recoil {
+    class DecodingReachesEndException : public std::exception {};
+
     template<UnsignedType RansStateType, UnsignedType RansBitstreamType,
             BitCountType ProbBits, RansStateType RenormLowerBound, BitCountType WriteBits,
             size_t NInterleaved>
@@ -26,9 +29,18 @@ namespace Recoil {
          */
         std::vector<ValueType> decode(const Cdf cdf) {
             std::vector<ValueType> result;
-            // TODO
+            while (true) {
+                try {
+                    result.push_back(decodeSymbol(*ransIt, cdf));
+                } catch (const DecodingReachesEndException& e) {
+                    return result;
+                }
 
-            return result;
+                if constexpr (NInterleaved > 1) {
+                    ransIt++;
+                    if (ransIt == rans.end()) ransIt = rans.begin();
+                }
+            }
         }
 
         /*
@@ -76,7 +88,7 @@ namespace Recoil {
         typename std::array<MyRans, NInterleaved>::iterator ransIt;
         typename std::span<RansBitstreamType>::reverse_iterator bitstreamReverseIt;
 
-        ValueType decodeSymbol(MyRans &decoder, const Cdf cdf) {
+        inline ValueType decodeSymbol(MyRans &decoder, const Cdf cdf) {
             auto probability = decoder.decGetProbability();
 
             auto symbol = cdf.findValue(probability);
@@ -90,20 +102,21 @@ namespace Recoil {
             }
         }
 
-        void renorm(MyRans &decoder) {
+        inline void renorm(MyRans &decoder) {
             if (bitstreamReverseIt == bitstream.rend()) [[unlikely]] {
-                // TODO: notify outside about bitstream end, so decode can be terminated
-                return;
-            }
-
-            if constexpr (MyRans::oneShotRenorm) {
-                bool renormed = decoder.decRenormOnce(*bitstreamReverseIt);
-                if (renormed) bitstreamReverseIt++;
+                if (decoder.state == RenormLowerBound) [[unlikely]] {
+                    throw DecodingReachesEndException();
+                } else return;
             } else {
-                bool renormed = decoder.decRenormOnce(*bitstreamReverseIt);
-                while (renormed) {
-                    bitstreamReverseIt++;
-                    renormed = decoder.decRenormOnce(*bitstreamReverseIt);
+                if constexpr (MyRans::oneShotRenorm) {
+                    bool renormed = decoder.decRenormOnce(*bitstreamReverseIt);
+                    if (renormed) bitstreamReverseIt++;
+                } else {
+                    bool renormed = decoder.decRenormOnce(*bitstreamReverseIt);
+                    while (renormed) {
+                        bitstreamReverseIt++;
+                        renormed = decoder.decRenormOnce(*bitstreamReverseIt);
+                    }
                 }
             }
         }

@@ -117,7 +117,7 @@ namespace Recoil {
         std::vector<EncoderIntermediateState> intermediateStates;
         size_t symbolCounter = 0;
 
-        void bufferSymbol(const ValueType value, const Cdf cdf) {
+        inline void bufferSymbol(const ValueType value, const Cdf cdf) {
             auto startAndFrequency = cdf.getStartAndFrequency(value);
             if (startAndFrequency.has_value()) {
                 auto [start, frequency] = startAndFrequency.value();
@@ -132,7 +132,7 @@ namespace Recoil {
             symbolCounter++;
         }
 
-        void encodeSymbol(MyRans &encoder, const Symbol &symbol) {
+        inline void encodeSymbol(MyRans &encoder, const Symbol &symbol) {
             if (symbol.type == Symbol::Encoded) [[likely]] {
                 const auto &encodedSymbol = std::get<typename Symbol::EncodedSymbol>(symbol.symbol);
                 bool renormed = renorm(encoder, encodedSymbol.frequency);
@@ -154,7 +154,7 @@ namespace Recoil {
         /*
          * Returns boolean representing if renormalization has occured.
          */
-        bool renorm(MyRans &encoder, const CdfType frequency) {
+        inline bool renorm(MyRans &encoder, const CdfType frequency) {
             auto output = encoder.encRenormOnce(frequency);
             if constexpr (MyRans::oneShotRenorm) {
                 if (output.has_value()) {

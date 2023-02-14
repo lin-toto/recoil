@@ -29,17 +29,17 @@ namespace Recoil {
 
         static constexpr const bool oneShotRenorm = WriteBits >= ProbBits;
 
-        void reset() { state = RenormLowerBound; }
+        inline void reset() { state = RenormLowerBound; }
 
-        void encPut(CdfType start, CdfType frequency) {
+        inline void encPut(CdfType start, CdfType frequency) {
             state = ((state / frequency) << ProbBits) + (state % frequency) + start;
         }
 
-        void encPutBypass(ValueType value, BitCountType bits) {
+        inline void encPutBypass(ValueType value, BitCountType bits) {
             state = (state << bits) | value;
         }
 
-        std::optional<RansBitstreamType> encRenormOnce(const CdfType frequency) {
+        inline std::optional<RansBitstreamType> encRenormOnce(const CdfType frequency) {
             const RansStateType renormUpperBound = ((RenormLowerBound >> ProbBits) << WriteBits) * frequency;
             if (state >= renormUpperBound) {
                 const RansBitstreamType mask = (1ul << WriteBits) - 1;
@@ -49,24 +49,24 @@ namespace Recoil {
             } else return std::nullopt;
         }
 
-        [[nodiscard]] CdfType decGetProbability() const {
+        [[nodiscard]] inline CdfType decGetProbability() const {
             constexpr RansStateType mask = (1ul << ProbBits) - 1;
             return state & mask;
         }
 
-        ValueType decGetBypass(const BitCountType nbits) {
+        inline ValueType decGetBypass(const BitCountType nbits) {
             const RansStateType mask = (1ul << nbits) - 1;
             auto value = static_cast<ValueType>(state & mask);
             state >>= nbits; // FIXME: should be const function
             return value;
         }
 
-        void decAdvanceSymbol(const CdfType lastStart, const CdfType lastFrequency) {
+        inline void decAdvanceSymbol(const CdfType lastStart, const CdfType lastFrequency) {
             constexpr RansStateType mask = (1ul << ProbBits) - 1;
             state = (state >> ProbBits) * lastFrequency + (state & mask) - lastStart;
         }
 
-        bool decRenormOnce(const RansBitstreamType next) {
+        inline bool decRenormOnce(const RansBitstreamType next) {
             if (state < RenormLowerBound) {
                 state = (state << WriteBits) | next;
                 return true;

@@ -99,7 +99,7 @@ namespace Recoil {
             return result;
         }
     protected:
-        void createRansSimds(SimdDataType* ransSimds) {
+        inline void createRansSimds(SimdDataType* ransSimds) {
             for (auto b = 0; b < RansStepCount; b++) {
                 alignas(sizeof(SimdDataType)) SimdArrayType rans{};
                 for (auto i = 0; i < RansBatchSize; i++) {
@@ -109,7 +109,7 @@ namespace Recoil {
             }
         };
 
-        void writeBackRansSimds(SimdDataType *ransSimds) {
+        inline void writeBackRansSimds(SimdDataType *ransSimds) {
             for (auto b = 0; b < RansStepCount; b++) {
                 auto rans = fromSimd(ransSimds[b]);
                 for (auto i = 0; i < RansBatchSize; i++) {
@@ -118,7 +118,7 @@ namespace Recoil {
             }
         };
 
-        auto getSymbolsAndStartsAndFrequencies(const SimdDataType probabilitiesSimd, const std::array<Cdf, RansBatchSize> &cdfs) {
+        inline auto getSymbolsAndStartsAndFrequencies(const SimdDataType probabilitiesSimd, const std::array<Cdf, RansBatchSize> &cdfs) {
             std::array<bool, RansBatchSize> bypass{};
             alignas(sizeof(SimdDataType)) SimdArrayType symbols{}, starts{}, frequencies{};
             auto probabilities = fromSimd(probabilitiesSimd);
@@ -141,7 +141,7 @@ namespace Recoil {
         virtual SimdArrayType fromSimd(SimdDataType simd) const = 0;
 
         virtual SimdDataType getProbabilities(SimdDataType ransSimd) const = 0;
-        virtual void advanceSymbol(SimdDataType ransSimd, SimdDataType lastProbabilities,
+        virtual void advanceSymbol(SimdDataType &ransSimd, SimdDataType lastProbabilities,
                                    SimdDataType lastStarts, SimdDataType lastFrequencies) = 0;
         virtual void renorm(SimdDataType &ransSimd) = 0;
     };

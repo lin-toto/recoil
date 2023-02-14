@@ -27,22 +27,22 @@ namespace Recoil {
     public:
         using MyBase::MyBase;
     protected:
-        [[nodiscard]] u32x8 toSimd(const SimdArrayType &val) const override {
+        [[nodiscard]] inline u32x8 toSimd(const SimdArrayType &val) const override {
             return _mm256_load_si256(reinterpret_cast<const u32x8*>(val.begin()));
         }
 
-        [[nodiscard]] SimdArrayType fromSimd(const u32x8 simd) const override {
+        [[nodiscard]] inline SimdArrayType fromSimd(const u32x8 simd) const override {
             alignas(32) std::array<uint32_t, RansBatchSize> val;
             _mm256_store_si256(reinterpret_cast<u32x8*>(val.begin()), simd);
             return val;
         }
 
-        [[nodiscard]] u32x8 getProbabilities(const u32x8 ransSimd) const override {
+        [[nodiscard]] inline u32x8 getProbabilities(const u32x8 ransSimd) const override {
             static const u32x8 probabilityMask = _mm256_set1_epi32((1 << ProbBits) - 1);
             return _mm256_and_si256(ransSimd, probabilityMask);
         }
 
-        void advanceSymbol(u32x8 &ransSimd, const u32x8 lastProbabilities,
+        inline void advanceSymbol(u32x8 &ransSimd, const u32x8 lastProbabilities,
                            const u32x8 lastStarts, const u32x8 lastFrequencies) override {
             // Advance Symbols
             ransSimd = _mm256_mullo_epi32(_mm256_srli_epi32(ransSimd, ProbBits), lastFrequencies);
@@ -50,7 +50,7 @@ namespace Recoil {
             ransSimd = _mm256_sub_epi32(ransSimd, lastStarts);
         }
 
-        void renorm(u32x8 &ransSimd) override {
+        inline void renorm(u32x8 &ransSimd) override {
             // Check renormalization flags; dirty hack because unsigned comparison is not supported in AVX2
             static const u32x8 renormLowerBound = _mm256_set1_epi32(RenormLowerBound - 0x80000000);
             static const u32x8 signFlag = _mm256_set1_epi32(static_cast<int>(0x80000000u));
