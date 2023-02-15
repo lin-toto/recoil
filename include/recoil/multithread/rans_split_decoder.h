@@ -22,6 +22,7 @@ namespace Recoil {
 
         std::vector<ValueType> decodeSplit(const size_t splitId, const Cdf cdf) {
             auto& currentSplit = data.splits[splitId];
+            // TODO: allow any class derived from RansDecoder, from a template parameter
             MyRansDecoder decoder(
                     std::span(data.bitstream.data(), std::min(data.bitstream.size(), currentSplit.cutPosition)),
                     currentSplit.intermediateRans);
