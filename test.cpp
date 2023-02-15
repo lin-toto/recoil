@@ -1,5 +1,6 @@
 #include "recoil/rans_encoder.h"
 #include "recoil/rans_decoder.h"
+#include "recoil/multithread/rans_split_decoder.h"
 #include "recoil/simd/rans_decoder_avx2_32x8n.h"
 
 #include <array>
@@ -55,6 +56,15 @@ int main() {
         std::cout << decoded2[i] << " ";
     }
     std::cout << std::endl;
+
+    RansCodedDataWithSplits<uint32_t, uint16_t, 16, 1ul<<16, 16, 8, 1> data{
+        result.bitstream,
+        result.finalRans,
+        {0, result.finalRans, {0, 0, 0, 0, 0, 0, 0, 0}}
+    };
+
+    RansSplitDecoder splitDec(data);
+    splitDec.decodeSplit(0, cdf);
 
     return 0;
 }

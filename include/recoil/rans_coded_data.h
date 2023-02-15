@@ -22,14 +22,17 @@ namespace Recoil {
         using MyRans = Rans<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
 
         struct Split {
-            size_t startPosition;
+            size_t cutPosition;
             std::array<MyRans, NInterleaved> intermediateRans;
-            std::array<size_t, NInterleaved> startSymbolIds;
+            std::array<size_t, NInterleaved> startSymbolGroupIds;
+
+            inline size_t minSymbolGroupId() { return *std::min(startSymbolGroupIds.begin(), startSymbolGroupIds.end()); }
+            inline size_t maxSymbolGroupId() { return *std::max(startSymbolGroupIds.begin(), startSymbolGroupIds.end()); }
         };
 
         /*
          * For split 0, it always starts at position 0; intermediateRans == finalRans[0];
-         * and startSymbolIds is corresponding ransCoderId.
+         * and startSymbolGroupIds is 0.
          */
         std::array<Split, NSplits> splits;
     };
