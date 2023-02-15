@@ -1,5 +1,6 @@
 #include "recoil/rans_encoder.h"
 #include "recoil/rans_decoder.h"
+#include "recoil/multithread/rans_split_encoder.h"
 #include "recoil/multithread/rans_split_decoder.h"
 #include "recoil/simd/rans_decoder_avx2_32x8n.h"
 

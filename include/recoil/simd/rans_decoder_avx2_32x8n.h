@@ -20,7 +20,7 @@ namespace Recoil {
     class RansDecoder_AVX2_32x8n : public RansDecoder_AVXBase<
             uint32_t, uint16_t, ProbBits, RenormLowerBound, 16, NInterleaved, u32x8_wrapper> {
         using MyBase = RansDecoder_AVXBase<uint32_t, uint16_t, ProbBits, RenormLowerBound, 16, NInterleaved, u32x8_wrapper>;
-        using SimdArrayType = MyBase::SimdArrayType;
+        using SimdArrayType = typename MyBase::SimdArrayType;
         using MyBase::RansBatchSize, MyBase::RansStepCount;
 
         static constexpr size_t WriteBits = 16;

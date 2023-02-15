@@ -22,8 +22,9 @@ namespace Recoil {
 
         std::vector<ValueType> decodeSplit(const size_t splitId, const Cdf cdf) {
             auto& currentSplit = data.splits[splitId];
-            MyRansDecoder decoder((std::span{data.bitstream.begin(), data.bitstream.begin()  + currentSplit.cutPosition}),
-                                  currentSplit.intermediateRans);
+            MyRansDecoder decoder(
+                    std::span(data.bitstream.data(), std::min(data.bitstream.size(), currentSplit.cutPosition)),
+                    currentSplit.intermediateRans);
 
             if (splitId != 0) {
                 // Step 1: synchronize decoders

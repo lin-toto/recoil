@@ -11,8 +11,9 @@ namespace Recoil {
 
     class Cdf {
     public:
-        const std::span<CdfType> cdf;
+        std::span<CdfType> cdf;
 
+        Cdf() : cdf() {}
         explicit Cdf(std::span<CdfType> cdf) : cdf(cdf) {}
 
         [[nodiscard]] inline std::optional<std::pair<CdfType, CdfType>> getStartAndFrequency(int value) const {
