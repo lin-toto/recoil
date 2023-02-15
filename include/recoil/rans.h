@@ -43,7 +43,7 @@ namespace Recoil {
             const RansStateType renormUpperBound = ((RenormLowerBound >> ProbBits) << WriteBits) * frequency;
             if (state >= renormUpperBound) {
                 const RansBitstreamType mask = (1ul << WriteBits) - 1;
-                auto output = static_cast<RansBitstreamType>(state & mask);
+                Recoil::UnsignedType auto output = static_cast<RansBitstreamType>(state & mask);
                 state >>= WriteBits;
                 return output;
             } else return std::nullopt;

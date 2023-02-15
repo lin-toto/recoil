@@ -57,7 +57,8 @@ namespace Recoil {
 
             {
                 // Step 2: do simd rANS decoding
-                std::array<Cdf, RansBatchSize> cdfs = {cdf, cdf, cdf, cdf, cdf, cdf, cdf, cdf};
+                std::array<Cdf, RansBatchSize> cdfs;
+                std::fill(cdfs.begin(), cdfs.end(), cdf);
 
                 SimdDataType ransSimds[RansStepCount];
                 createRansSimds(ransSimds);

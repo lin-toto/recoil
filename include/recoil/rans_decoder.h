@@ -103,7 +103,7 @@ namespace Recoil {
         }
 
         inline void renorm(MyRans &decoder) {
-            if (bitstreamReverseIt == bitstream.rend()) [[unlikely]] {
+            if (bitstreamReverseIt == bitstream.rend()) [[unlikely]] { // TODO: maybe no unlikely tag?
                 if (decoder.state == RenormLowerBound) [[unlikely]] {
                     throw DecodingReachesEndException();
                 } else return;

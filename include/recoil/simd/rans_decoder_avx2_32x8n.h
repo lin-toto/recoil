@@ -51,30 +51,37 @@ namespace Recoil {
         }
 
         inline void renorm(u32x8 &ransSimd) override {
-            // Check renormalization flags; dirty hack because unsigned comparison is not supported in AVX2
-            static const u32x8 renormLowerBound = _mm256_set1_epi32(RenormLowerBound - 0x80000000);
-            static const u32x8 signFlag = _mm256_set1_epi32(static_cast<int>(0x80000000u));
-            u32x8 renormMaskSimd = _mm256_cmpgt_epi32(renormLowerBound,_mm256_xor_si256(ransSimd, signFlag));
+            if (this->bitstreamReverseIt == this->bitstream.rend()) [[unlikely]] { // TODO: maybe no unlikely tag?
+                static const u32x8 renormLowerBound = _mm256_set1_epi32(RenormLowerBound);
+                if (_mm256_movemask_ps(reinterpret_cast<__m256>(_mm256_cmpeq_epi32(ransSimd, renormLowerBound)))) {
+                    throw DecodingReachesEndException();
+                }
+            } else {
+                // Check renormalization flags; dirty hack because unsigned comparison is not supported in AVX2
+                static const u32x8 renormLowerBound = _mm256_set1_epi32(RenormLowerBound - 0x80000000);
+                static const u32x8 signFlag = _mm256_set1_epi32(static_cast<int>(0x80000000u));
+                u32x8 renormMaskSimd = _mm256_cmpgt_epi32(renormLowerBound,_mm256_xor_si256(ransSimd, signFlag));
 
-            auto renormMask = _mm256_movemask_ps(reinterpret_cast<__m256>(renormMaskSimd));
-            if (renormMask) {
-                /*            <--------------------------vv
-                 * Bitstream: 01 23 45 67 89 ab cd ef 01 23 45 67 89 ab cd ef
-                 * RenormCount: 2 (Expected to read:  ^^ ^^)
-                 * Read from ptr - 7 then set ptr -= 2
-                 */
+                auto renormMask = _mm256_movemask_ps(reinterpret_cast<__m256>(renormMaskSimd));
+                if (renormMask) {
+                    /*            <--------------------------vv
+                     * Bitstream: 01 23 45 67 89 ab cd ef 01 23 45 67 89 ab cd ef
+                     * RenormCount: 2 (Expected to read:  ^^ ^^)
+                     * Read from ptr - 7 then set ptr -= 2
+                     */
 
-                auto renormCount = std::popcount(static_cast<unsigned int>(renormMask));
-                auto bitstreamPtr = reinterpret_cast<const __m128i*>(&(*this->bitstreamReverseIt) - RansBatchSize + 1);
+                    auto renormCount = std::popcount(static_cast<unsigned int>(renormMask));
+                    auto bitstreamPtr = reinterpret_cast<const __m128i*>(&(*this->bitstreamReverseIt) - RansBatchSize + 1);
 
-                // Use _mm_loadu_si128 because it does not require memory alignment.
-                u32x8 nextBitstream = _mm256_cvtepu16_epi32(_mm_loadu_si128(bitstreamPtr));
-                u32x8 nextStates = _mm256_permutevar8x32_epi32(nextBitstream, AVX2Permute::getPermuteOffsets(renormMask));
+                    // Use _mm_loadu_si128 because it does not require memory alignment.
+                    u32x8 nextBitstream = _mm256_cvtepu16_epi32(_mm_loadu_si128(bitstreamPtr));
+                    u32x8 nextStates = _mm256_permutevar8x32_epi32(nextBitstream, AVX2Permute::getPermuteOffsets(renormMask));
 
-                u32x8 renormedRans = _mm256_or_si256(_mm256_slli_epi32(ransSimd, WriteBits), nextStates);
-                ransSimd = _mm256_blendv_epi8(ransSimd, renormedRans, renormMaskSimd);
+                    u32x8 renormedRans = _mm256_or_si256(_mm256_slli_epi32(ransSimd, WriteBits), nextStates);
+                    ransSimd = _mm256_blendv_epi8(ransSimd, renormedRans, renormMaskSimd);
 
-                this->bitstreamReverseIt += renormCount;
+                    this->bitstreamReverseIt += renormCount;
+                }
             }
         }
     };
