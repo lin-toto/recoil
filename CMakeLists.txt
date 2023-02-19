@@ -24,3 +24,5 @@ link_directories(
 )
 
 add_executable(test test.cpp)
+
+add_subdirectory(examples)
