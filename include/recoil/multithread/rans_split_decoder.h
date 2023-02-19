@@ -12,6 +12,7 @@ namespace Recoil {
             BitCountType ProbBits, RansStateType RenormLowerBound, BitCountType WriteBits,
             size_t NInterleaved, size_t NSplits>
     class RansSplitDecoder {
+        // TODO: allow any class derived from RansDecoder, from a template parameter
     protected:
         using MyRansCodedDataWithSplits = RansCodedDataWithSplits<
                 RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved, NSplits>;
@@ -22,7 +23,6 @@ namespace Recoil {
 
         std::vector<ValueType> decodeSplit(const size_t splitId, const Cdf cdf) {
             auto& currentSplit = data.splits[splitId];
-            // TODO: allow any class derived from RansDecoder, from a template parameter
             MyRansDecoder decoder(
                     std::span(data.bitstream.data(), std::min(data.bitstream.size(), currentSplit.cutPosition)),
                     currentSplit.intermediateRans);
@@ -45,14 +45,10 @@ namespace Recoil {
                 }
             }
 
-            if (splitId != NSplits - 1) {
-                // Step 2: begin decoding
-                size_t decodeStartSymbolId = NInterleaved * (currentSplit.maxSymbolGroupId() + 1);
-                size_t decodeEndSymbolId = NInterleaved * data.splits[splitId + 1].maxSymbolGroupId();
-                return decoder.decode(cdf, decodeEndSymbolId - decodeStartSymbolId);
-            } else {
-                return decoder.decode(cdf);
-            }
+            size_t decodeStartSymbolId = NInterleaved * (currentSplit.maxSymbolGroupId() + 1);
+            size_t decodeEndSymbolId = splitId == NSplits - 1 ? data.symbolCount
+                    : NInterleaved * data.splits[splitId + 1].maxSymbolGroupId();
+            return decoder.decode(cdf, decodeEndSymbolId - decodeStartSymbolId);
         }
 
         std::vector<ValueType> decodeSplit(size_t splitId, const std::span<Cdf> fullCdf) {

@@ -58,7 +58,14 @@ int main() {
     }
     std::cout << std::endl;
 
+    RansSplitEncoder splitEnc((std::array{
+            Rans32<16>(), Rans32<16>(), Rans32<16>(), Rans32<16>(),
+            Rans32<16>(), Rans32<16>(), Rans32<16>(), Rans32<16>()
+    }));
+    splitEnc.flushSplits<4>();
+
     RansCodedDataWithSplits<uint32_t, uint16_t, 16, 1ul<<16, 16, 8, 1> data{
+        numval,
         result.bitstream,
         result.finalRans,
         {0, result.finalRans, {0, 0, 0, 0, 0, 0, 0, 0}}

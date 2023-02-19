@@ -14,9 +14,11 @@
 namespace Recoil {
     template<UnsignedType RansStateType, UnsignedType RansBitstreamType,
             BitCountType ProbBits, RansStateType RenormLowerBound, BitCountType WriteBits,
-            size_t NInterleaved,
-            bool RecordIntermediateStates = false, UnsignedType RansIntermediateStateType = RansStateType>
+            size_t NInterleaved, bool RecordIntermediateStates = false>
     class RansEncoder {
+        template<UnsignedType T, UnsignedType, BitCountType, T, BitCountType, size_t>
+        friend class RansSplitEncoder;
+    protected:
         using MyRans = Rans<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
         using MyRansCodedData = RansCodedData<
                 RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved>;
@@ -46,34 +48,10 @@ namespace Recoil {
             }
         }
 
-        /*
-         * Flush the buffered values into the bitstream.
-         *
-         * We encode the symbols in reverse order so decoder produces them in the normal order.
-         * In interleaved rANS, we start with the last decoder if (nSymbols - 1) % NInterleaved == 0,
-         * but when not so, align it with the correct entropy coder.
-         * We should be sending it to coder (NInterleaved - 1) - (NInterleaved - (nSymbols - 1) % NInterleaved - 1).
-         *
-         * For example:
-         * Coders 0 1 2 3
-         * Input  0 1 2 3
-         *        4 5 6
-         * During encode we start with 6, so it goes to coder 3 - (4 - 6 % 4 - 1) = 2.
-         */
         MyRansCodedData flush() {
-            auto ransIt = rans.rbegin();
-            if constexpr (NInterleaved > 1) ransIt += NInterleaved - (symbolBuffer.size() - 1) % NInterleaved - 1;
+            encodeAll();
 
-            for (auto symbol = symbolBuffer.rbegin(); symbol != symbolBuffer.rend(); symbol++) {
-                encodeSymbol(*ransIt, *symbol);
-
-                if constexpr (NInterleaved > 1) {
-                    ransIt++;
-                    if (ransIt == rans.rend()) ransIt = rans.rbegin();
-                }
-            }
-
-            MyRansCodedData result{bitstream, rans};
+            MyRansCodedData result{symbolBuffer.size(), std::move(bitstream), std::move(rans)};
             reset();
 
             return result;
@@ -86,7 +64,6 @@ namespace Recoil {
             std::for_each(rans.begin(), rans.end(), [](MyRans &r) { r.reset(); });
             symbolCounter = 0;
         }
-
     protected:
         struct Symbol {
             struct EncodedSymbol {
@@ -105,10 +82,11 @@ namespace Recoil {
         };
 
         struct EncoderIntermediateState {
-            RansIntermediateStateType intermediateState;
+            RansStateType intermediateState;
             size_t symbolId;
 
-            [[nodiscard]] size_t encoderId () const { return symbolId % NInterleaved; }
+            [[nodiscard]] inline size_t symbolGroupId () const { return symbolId / NInterleaved; }
+            [[nodiscard]] inline size_t encoderId () const { return symbolId % NInterleaved; }
         };
 
         std::array<MyRans, NInterleaved> rans;
@@ -132,16 +110,41 @@ namespace Recoil {
             symbolCounter++;
         }
 
+        /*
+         * Encode the buffered values into the bitstream.
+         *
+         * We encode the symbols in reverse order so decoder produces them in the normal order.
+         * In interleaved rANS, we start with the last decoder if (nSymbols - 1) % NInterleaved == 0,
+         * but when not so, align it with the correct entropy coder.
+         * We should be sending it to coder (NInterleaved - 1) - (NInterleaved - (nSymbols - 1) % NInterleaved - 1).
+         *
+         * For example:
+         * Coders 0 1 2 3
+         * Input  0 1 2 3
+         *        4 5 6
+         * During encode we start with 6, so it goes to coder 3 - (4 - 6 % 4 - 1) = 2.
+         */
+        void encodeAll() {
+            auto ransIt = rans.rbegin();
+            if constexpr (NInterleaved > 1) ransIt += NInterleaved - (symbolBuffer.size() - 1) % NInterleaved - 1;
+
+            for (auto symbol = symbolBuffer.rbegin(); symbol != symbolBuffer.rend(); symbol++) {
+                encodeSymbol(*ransIt, *symbol);
+
+                if constexpr (NInterleaved > 1) {
+                    ransIt++;
+                    if (ransIt == rans.rend()) ransIt = rans.rbegin();
+                }
+            }
+        }
+
         inline void encodeSymbol(MyRans &encoder, const Symbol &symbol) {
             if (symbol.type == Symbol::Encoded) [[likely]] {
                 const auto &encodedSymbol = std::get<typename Symbol::EncodedSymbol>(symbol.symbol);
                 bool renormed = renorm(encoder, encodedSymbol.frequency);
                 if constexpr (RecordIntermediateStates) {
                     if (renormed) {
-                        intermediateStates.push_back({
-                            static_cast<RansIntermediateStateType>(encoder.state),
-                            symbol.symbolId
-                        });
+                        intermediateStates.push_back({encoder.state,symbol.symbolId});
                     }
                 }
 

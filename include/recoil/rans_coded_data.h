@@ -10,6 +10,7 @@ namespace Recoil {
             size_t NInterleaved>
     struct RansCodedData {
         using MyRans = Rans<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
+        size_t symbolCount;
         std::vector<RansBitstreamType> bitstream;
         std::array<MyRans, NInterleaved> finalRans;
     };

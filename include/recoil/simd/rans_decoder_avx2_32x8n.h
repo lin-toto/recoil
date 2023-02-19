@@ -51,7 +51,7 @@ namespace Recoil {
         }
 
         inline void renorm(u32x8 &ransSimd) override {
-            if (this->bitstreamReverseIt == this->bitstream.rend()) [[unlikely]] { // TODO: maybe no unlikely tag?
+            if (this->bitstreamReverseIt == this->bitstream.rend()) [[unlikely]] {
                 static const u32x8 renormLowerBound = _mm256_set1_epi32(RenormLowerBound);
                 if (_mm256_movemask_ps(reinterpret_cast<__m256>(_mm256_cmpeq_epi32(ransSimd, renormLowerBound)))) {
                     throw DecodingReachesEndException();
