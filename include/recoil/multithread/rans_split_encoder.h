@@ -45,7 +45,7 @@ namespace Recoil {
 
                     if (initial) {
                         if (std::transform_reduce(
-                                splitZoneEncoderCount.begin(), splitZoneEncoderCount.end(), std::plus{},
+                                splitZoneEncoderCount.begin(), splitZoneEncoderCount.end(), 0, std::plus{},
                                 [](auto val) { return val >= 1 ? 1 : 0; }) != NInterleaved) {
                             continue;
                         } else {
@@ -53,8 +53,8 @@ namespace Recoil {
                         }
                     }
 
-                    while (splitZoneEncoderCount[stateFrontIt] > 1) {
-                        splitZoneEncoderCount[stateFrontIt]--;
+                    while (splitZoneEncoderCount[stateFrontIt->encoderId()] > 1) {
+                        splitZoneEncoderCount[stateFrontIt->encoderId()]--;
                         stateFrontIt++;
                     }
 
@@ -66,7 +66,7 @@ namespace Recoil {
                 // Step 2: scan bitstream again to split it as even as possible
                 // TODO: maybe need a better strategy?
 
-                
+
             }
 
 
