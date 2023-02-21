@@ -1,5 +1,6 @@
 #include "cdf_utils.h"
-#include "file_utils.h"
+#include "file.h"
+#include "profiling.h"
 
 #include "recoil/lib/cdf.h"
 #include "recoil/rans_encoder.h"
@@ -14,6 +15,7 @@ using namespace Recoil;
 using namespace Recoil::Examples;
 
 const uint8_t ProbBits = 16;
+const size_t NInterleaved = 8;
 
 int main(int argc, const char **argv) {
     if (argc != 2) {
@@ -26,26 +28,24 @@ int main(int argc, const char **argv) {
 
     Cdf cdf{std::span{cdfVec}};
 
-    RansEncoder enc((std::array{
-            Rans32<16>(), Rans32<16>(), Rans32<16>(), Rans32<16>(),
-            Rans32<16>(), Rans32<16>(), Rans32<16>(), Rans32<16>()
-    }));
+    RansEncoder enc((std::array<Rans32<ProbBits>, NInterleaved>{}));
     std::vector<ValueType> symbols{text.begin(), text.end()};
     enc.buffer(symbols, cdf);
     auto result = enc.flush();
 
     RansDecoder dec((std::span{result.bitstream}), result.finalRans);
-    auto decoded = dec.decode(cdf, symbols.size());
+    std::vector<ValueType> decoded;
+    auto time = timeIt([&]() { decoded = dec.decode(cdf, symbols.size()); });
     if (std::equal(symbols.begin(), symbols.end(), decoded.begin())) {
-        std::cout << "Decoding success!" << std::endl;
+        std::cout << "Decoding success! Time: " << time << "us" << std::endl;
     } else {
         std::cerr << "Decoding failed!" << std::endl;
     }
 
     RansDecoder_AVX2_32x8n decAVX2((std::span{result.bitstream}), result.finalRans);
-    auto decodedAVX2 = decAVX2.decode(cdf, symbols.size());
-    if (std::equal(symbols.begin(), symbols.end(), decodedAVX2.begin())) {
-        std::cout << "AVX2 Decoding success!" << std::endl;
+    time = timeIt([&]() { decoded = decAVX2.decode(cdf, symbols.size()); });
+    if (std::equal(symbols.begin(), symbols.end(), decoded.begin())) {
+        std::cout << "AVX2 Decoding success! Time: " << time << "us" << std::endl;
     } else {
         std::cerr << "AVX2 Decoding failed!" << std::endl;
     }

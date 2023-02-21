@@ -34,10 +34,7 @@ int main() {
     }
     std::cout << std::endl;
 
-    RansEncoder enc((std::array{
-        Rans32<16>(), Rans32<16>(), Rans32<16>(), Rans32<16>(),
-        Rans32<16>(), Rans32<16>(), Rans32<16>(), Rans32<16>()
-    }));
+    RansEncoder enc((std::array<Rans32<16>, 8>{}));
     enc.buffer(values, cdf);
 
     auto result = enc.flush();
@@ -58,10 +55,7 @@ int main() {
     }
     std::cout << std::endl;
 
-    RansSplitEncoder splitEnc((std::array{
-            Rans32<16>(), Rans32<16>(), Rans32<16>(), Rans32<16>(),
-            Rans32<16>(), Rans32<16>(), Rans32<16>(), Rans32<16>()
-    }));
+    RansSplitEncoder splitEnc((std::array<Rans32<16>, 8>{}));
     splitEnc.flushSplits<4>();
 
     RansCodedDataWithSplits<uint32_t, uint16_t, 16, 1ul<<16, 16, 8, 1> data{
