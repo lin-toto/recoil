@@ -51,15 +51,16 @@ namespace Recoil {
         }
 
         inline void renorm(u32x8 &ransSimd) override {
+            // Check renormalization flags; dirty hack because unsigned comparison is not supported in AVX2
+            static const u32x8 renormLowerBound = _mm256_set1_epi32(RenormLowerBound - 0x80000000);
+            static const u32x8 signFlag = _mm256_set1_epi32(static_cast<int>(0x80000000u));
+
             if (this->bitstreamReverseIt == this->bitstream.rend()) [[unlikely]] {
                 static const u32x8 renormLowerBound = _mm256_set1_epi32(RenormLowerBound);
-                if (_mm256_movemask_ps(reinterpret_cast<__m256>(_mm256_cmpeq_epi32(ransSimd, renormLowerBound)))) {
+                if (_mm256_movemask_ps(reinterpret_cast<__m256>(_mm256_cmpgt_epi32(_mm256_xor_si256(ransSimd, signFlag), renormLowerBound)))) {
                     throw DecodingReachesEndException();
                 }
             } else {
-                // Check renormalization flags; dirty hack because unsigned comparison is not supported in AVX2
-                static const u32x8 renormLowerBound = _mm256_set1_epi32(RenormLowerBound - 0x80000000);
-                static const u32x8 signFlag = _mm256_set1_epi32(static_cast<int>(0x80000000u));
                 u32x8 renormMaskSimd = _mm256_cmpgt_epi32(renormLowerBound,_mm256_xor_si256(ransSimd, signFlag));
 
                 auto renormMask = _mm256_movemask_ps(reinterpret_cast<__m256>(renormMaskSimd));
