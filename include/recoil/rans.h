@@ -2,6 +2,7 @@
 #define RECOIL_RANS_H
 
 #include "recoil/lib/cdf.h"
+#include "recoil/cuda/macros.h"
 #include <cstdint>
 #include <type_traits>
 #include <optional>
@@ -28,17 +29,17 @@ namespace Recoil {
 
         static constexpr const bool oneShotRenorm = WriteBits >= ProbBits;
 
-        inline void reset() { state = RenormLowerBound; }
+        CUDA_HOST_DEVICE inline void reset() { state = RenormLowerBound; }
 
-        inline void encPut(CdfType start, CdfType frequency) {
+        CUDA_HOST_DEVICE inline void encPut(CdfType start, CdfType frequency) {
             state = ((state / frequency) << ProbBits) + (state % frequency) + start;
         }
 
-        inline void encPutBypass(ValueType value, BitCountType bits) {
+        CUDA_HOST_DEVICE inline void encPutBypass(ValueType value, BitCountType bits) {
             state = (state << bits) | value;
         }
 
-        inline std::optional<RansBitstreamType> encRenormOnce(const CdfType frequency) {
+        CUDA_HOST_DEVICE inline std::optional<RansBitstreamType> encRenormOnce(const CdfType frequency) {
             const RansStateType renormUpperBound = ((RenormLowerBound >> ProbBits) << WriteBits) * frequency;
             if (state >= renormUpperBound) {
                 const RansBitstreamType mask = (1ul << WriteBits) - 1;
@@ -48,24 +49,24 @@ namespace Recoil {
             } else return std::nullopt;
         }
 
-        [[nodiscard]] inline CdfType decGetProbability() const {
+        CUDA_HOST_DEVICE [[nodiscard]] inline CdfType decGetProbability() const {
             constexpr RansStateType mask = (1ul << ProbBits) - 1;
             return state & mask;
         }
 
-        inline ValueType decGetBypass(const BitCountType nbits) {
+        CUDA_HOST_DEVICE inline ValueType decGetBypass(const BitCountType nbits) {
             const RansStateType mask = (1ul << nbits) - 1;
             auto value = static_cast<ValueType>(state & mask);
             state >>= nbits; // FIXME: should be const function
             return value;
         }
 
-        inline void decAdvanceSymbol(const CdfType lastStart, const CdfType lastFrequency) {
+        CUDA_HOST_DEVICE inline void decAdvanceSymbol(const CdfType lastStart, const CdfType lastFrequency) {
             constexpr RansStateType mask = (1ul << ProbBits) - 1;
             state = (state >> ProbBits) * lastFrequency + (state & mask) - lastStart;
         }
 
-        inline bool decRenormOnce(const RansBitstreamType next) {
+        CUDA_HOST_DEVICE inline bool decRenormOnce(const RansBitstreamType next) {
             if (state < RenormLowerBound) {
                 state = (state << WriteBits) | next;
                 return true;
