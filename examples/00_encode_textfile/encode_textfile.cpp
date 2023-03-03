@@ -14,7 +14,7 @@
 using namespace Recoil;
 using namespace Recoil::Examples;
 
-const uint8_t ProbBits = 16;
+const uint8_t ProbBits = 10;
 const size_t NInterleaved = 8;
 
 int main(int argc, const char **argv) {
@@ -24,9 +24,11 @@ int main(int argc, const char **argv) {
     }
 
     auto text = readFile(argv[1]);
-    auto cdfVec = buildCdfFromString(text, ProbBits);
+    std::cout << "File size: " << text.length() << " bytes" << std::endl;
 
-    Cdf cdf{std::span{cdfVec}};
+    auto cdfVec = buildCdfFromString(text, ProbBits);
+    auto lut = Cdf::buildLut<ProbBits>(std::span{cdfVec});
+    Cdf cdf((std::span{cdfVec}), (std::span{lut}));
 
     RansEncoder enc((std::array<Rans32<ProbBits>, NInterleaved>{}));
     std::vector<ValueType> symbols{text.begin(), text.end()};
@@ -41,6 +43,7 @@ int main(int argc, const char **argv) {
     } else {
         std::cerr << "Decoding failed!" << std::endl;
     }
+    std::cout << "Throughput: " << text.length() / (time / 1000000.0) / 1024 / 1024 << " MB/s" << std::endl;
 
     RansDecoder_AVX2_32x8n decAVX2((std::span{result.bitstream}), result.finalRans);
     time = timeIt([&]() { decoded = decAVX2.decode(cdf, symbols.size()); });
@@ -49,6 +52,7 @@ int main(int argc, const char **argv) {
     } else {
         std::cerr << "AVX2 Decoding failed!" << std::endl;
     }
+    std::cout << "Throughput: " << text.length() / (time / 1000000.0) / 1024 / 1024 << " MB/s" << std::endl;
 
     return 0;
 }

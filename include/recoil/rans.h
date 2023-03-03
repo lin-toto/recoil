@@ -1,16 +1,13 @@
 #ifndef RECOIL_RANS_H
 #define RECOIL_RANS_H
 
+#include "recoil/type_aliases.h"
 #include "recoil/lib/cdf.h"
 #include "recoil/cuda/macros.h"
-#include <cstdint>
 #include <type_traits>
 #include <optional>
 
 namespace Recoil {
-    using ValueType = int16_t;
-    using BitCountType = uint8_t;
-
     template<class T>
     concept UnsignedType = std::is_unsigned_v<T>;
 
