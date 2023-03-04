@@ -1,6 +1,6 @@
 #include "cdf_utils.h"
 #include <numeric>
-
+#include <stdexcept>
 
 namespace Recoil::Examples {
     std::vector<CdfType> buildCdfFromString(std::string_view str, uint8_t probBits) {

@@ -12,19 +12,25 @@ namespace {
     constexpr T mypow(T num, unsigned int pow) {
         return pow == 0 ? 1 : num * mypow(num, pow - 1);
     }
-
-    // TODO: simple hack here to test linear search and Lut
-    const bool UseLut = true;
 }
 
 namespace Recoil {
     class Cdf {
+        // TODO: maybe make it a template class in the future?
     public:
+        /*
+         * BitKnit like mixed LUT/CDF lookup. In bits.
+         * 0: no LUT.
+         * 1: LUT covers all values.
+         * n: LUT covers the first ProbBits - n bits of values.
+         */
+        static const unsigned int LutGranularity = 1;
+
         std::span<CdfType> cdf;
         std::span<ValueType> lut;
 
         Cdf() : cdf() {}
-        explicit Cdf(std::span<CdfType> cdf) : cdf(cdf), lut() {}
+        explicit Cdf(std::span<CdfType> cdf) : cdf(cdf), lut() {} // Should not be used when LutGranularity != 0
         Cdf(std::span<CdfType> cdf, std::span<ValueType> lut) : cdf(cdf), lut(lut) {}
 
         // Value may not be a valid value in cdf, so use int instead of ValueType
@@ -36,7 +42,7 @@ namespace Recoil {
         }
 
         [[nodiscard]] inline std::optional<ValueType> findValue(CdfType probability) const {
-            if constexpr (UseLut) {
+            if constexpr (LutGranularity == 1) {
                 return lut[probability];
             } else {
                 auto it = std::find_if(cdf.begin(), cdf.end(), [probability](auto v) {

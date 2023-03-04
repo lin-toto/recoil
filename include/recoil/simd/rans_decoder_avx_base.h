@@ -2,6 +2,7 @@
 #define RECOIL_RANS_DECODER_AVX_BASE_H
 
 #include "recoil/rans_decoder.h"
+#include <x86intrin.h>
 #include <array>
 
 namespace Recoil {
@@ -39,6 +40,9 @@ namespace Recoil {
         }
 
         std::vector<ValueType> decode(const Cdf cdf, const size_t count) {
+            // TODO: support LUT/CDF mixed lookup
+            static_assert(Cdf::LutGranularity == 1, "Only support LUT lookup");
+
             std::vector<ValueType> result;
             result.reserve(count);
             size_t completedCount = 0;
@@ -56,10 +60,6 @@ namespace Recoil {
             }
 
             {
-                // Step 2: do simd rANS decoding
-                std::array<Cdf, RansBatchSize> cdfs{};
-                std::fill(cdfs.begin(), cdfs.end(), cdf);
-
                 SimdDataType ransSimds[RansStepCount];
                 createRansSimds(ransSimds);
 
@@ -67,7 +67,11 @@ namespace Recoil {
                     for (auto b = 0; b < RansStepCount; b++) {
                         auto& ransSimd = ransSimds[b];
                         auto probabilitiesSimd = getProbabilities(ransSimd);
-                        auto [bypass, symbolsSimd, startsSimd, frequenciesSimd] = getSymbolsAndStartsAndFrequencies(probabilitiesSimd, cdfs);
+
+                        auto [symbolsSimd, startsSimd, frequenciesSimd] = getSymbolsAndStartsAndFrequenciesSimd_staticCdf_LutOnly(
+                                probabilitiesSimd, cdf);
+                        // TODO: support LUT/CDF mixed lookup
+
                         // TODO: if probability is a bypass sentinel, handle as bypass symbol
 
                         advanceSymbol(ransSimd, probabilitiesSimd, startsSimd, frequenciesSimd);
@@ -119,7 +123,7 @@ namespace Recoil {
             }
         };
 
-        inline auto getSymbolsAndStartsAndFrequencies(const SimdDataType probabilitiesSimd, const std::array<Cdf, RansBatchSize> &cdfs) {
+        inline auto getSymbolsAndStartsAndFrequencies_generic(const SimdDataType probabilitiesSimd, const std::array<Cdf, RansBatchSize> &cdfs) {
             std::array<bool, RansBatchSize> bypass{};
             alignas(sizeof(SimdDataType)) SimdArrayType symbols{}, starts{}, frequencies{};
             auto probabilities = fromSimd(probabilitiesSimd);
@@ -137,6 +141,7 @@ namespace Recoil {
 
             return std::make_tuple(bypass, toSimd(symbols), toSimd(starts), toSimd(frequencies));
         }
+        virtual std::tuple<SimdDataType, SimdDataType, SimdDataType> getSymbolsAndStartsAndFrequenciesSimd_staticCdf_LutOnly(SimdDataType probabilitiesSimd, Cdf cdf) const = 0;
 
         virtual SimdDataType toSimd(const SimdArrayType &val) const = 0;
         virtual SimdArrayType fromSimd(SimdDataType simd) const = 0;

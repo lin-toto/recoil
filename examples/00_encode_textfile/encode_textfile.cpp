@@ -10,12 +10,14 @@
 #include <iostream>
 #include <vector>
 #include <cstdint>
+#include <array>
+#include <future>
 
 using namespace Recoil;
 using namespace Recoil::Examples;
 
-const uint8_t ProbBits = 10;
-const size_t NInterleaved = 8;
+const uint8_t ProbBits = 12;
+const size_t NInterleaved = 16;
 
 int main(int argc, const char **argv) {
     if (argc != 2) {
@@ -53,6 +55,26 @@ int main(int argc, const char **argv) {
         std::cerr << "AVX2 Decoding failed!" << std::endl;
     }
     std::cout << "Throughput: " << text.length() / (time / 1000000.0) / 1024 / 1024 << " MB/s" << std::endl;
+
+    const int threads = 32;
+    std::array<std::future<unsigned int>, threads> tasks;
+    for (int i = 0; i < threads; i++) {
+        tasks[i] = std::async(std::launch::async, [&result, &cdf, &symbols] {
+            RansDecoder_AVX2_32x8n decAVX2((std::span{result.bitstream}), result.finalRans);
+            auto time = timeIt([&]() { auto decoded = decAVX2.decode(cdf, symbols.size()); });
+            return time;
+        });
+    }
+
+    double sumThroughput = 0;
+    for (int i = 0; i < threads; i++) {
+        tasks[i].wait();
+        auto time = tasks[i].get();
+        auto t = text.length() / (time / 1000000.0) / 1024 / 1024;
+        std::cout << "Multithread Throughput: " << t << " MB/s" << std::endl;
+        sumThroughput += t;
+    }
+    std::cout << "Sum: " << sumThroughput << " MB/s" << std::endl;
 
     return 0;
 }

@@ -3,6 +3,7 @@
 
 #include "recoil/rans.h"
 #include <vector>
+#include <string_view>
 
 namespace Recoil::Examples {
     std::vector<CdfType> buildCdfFromString(std::string_view str, uint8_t probBits);
