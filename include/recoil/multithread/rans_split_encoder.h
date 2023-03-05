@@ -33,21 +33,22 @@ namespace Recoil {
 
         inline MyRansEncoder& getEncoder() { return encoder; }
 
-        enum SplitStrategy {
-            HeuristicSymbolCount, EqualLength
-        };
-
         template<size_t NSplits>
         MyRansCodedDataWithSplits<NSplits> flushSplits(SplitStrategy strategy = HeuristicSymbolCount) {
             encoder.encodeAll();
 
+            MyRansCodedDataWithSplits<NSplits> result;
             switch (strategy) {
                 case HeuristicSymbolCount:
-                    return flushSplits_heuristicSymbolCount<NSplits>();
-                case EqualLength:
-                    // TODO
+                    result = flushSplits_heuristicSymbolCount<NSplits>();
+                    break;
+                case EqualBitstreamLength:
+                    result = flushSplits_equalBitstreamLength<NSplits>();
                     break;
             }
+
+            encoder.reset();
+            return result;
         }
     protected:
         MyRansEncoder encoder;
@@ -62,7 +63,8 @@ namespace Recoil {
             bestSplitPoints.fill(std::make_pair(0, std::numeric_limits<size_t>::max()));
 
             MyRansCodedDataWithSplits<NSplits> result{
-                    encoder.symbolBuffer.size(), std::move(encoder.bitstream), std::move(encoder.rans), {}
+                    encoder.symbolBuffer.size(), std::move(encoder.bitstream), std::move(encoder.rans),
+                    HeuristicSymbolCount, {}
             };
 
             auto targetSymbolCountPerSplit = saveDiv(encoder.symbolBuffer.size(), NSplits);
@@ -107,13 +109,39 @@ namespace Recoil {
                 }
             }
 
+            std::array<size_t, NSplits> splitPoints;
+            std::transform(bestSplitPoints.begin(), bestSplitPoints.end(), splitPoints.begin(), [](auto v) { return v.first; });
+            buildSplitsMetadata(splitPoints, result);
+
+            return result;
+        }
+
+        template<size_t NSplits>
+        MyRansCodedDataWithSplits<NSplits> flushSplits_equalBitstreamLength() {
+            MyRansCodedDataWithSplits<NSplits> result{
+                    encoder.symbolBuffer.size(), std::move(encoder.bitstream), std::move(encoder.rans),
+                    EqualBitstreamLength, {}
+            };
+
+            auto targetLengthPerSplit = saveDiv(encoder.symbolBuffer.size(), NSplits);
+            std::array<size_t, NSplits> splitPoints;
+            for (auto splitId = 1; splitId < NSplits; splitId++) {
+                splitPoints[splitId] = (NSplits - splitId) * targetLengthPerSplit;
+            }
+            buildSplitsMetadata(splitPoints, result);
+
+            return result;
+        }
+
+        template<size_t NSplits>
+        void buildSplitsMetadata(const std::array<size_t, NSplits>& splitPoints, MyRansCodedDataWithSplits<NSplits>& result) {
             result.splits[0] = {
-                result.bitstream.size(),
-                result.finalRans,
-                {}
+                    result.bitstream.size(),
+                    result.finalRans,
+                    {}
             };
             for (auto splitId = 1; splitId < NSplits; splitId++) {
-                auto splitPoint = bestSplitPoints[splitId].first;
+                auto splitPoint = splitPoints[splitId];
                 auto splitPointIt = encoder.intermediateStates.begin() + splitPoint;
                 result.splits[splitId].cutPosition = splitPoint;
 
@@ -127,11 +155,9 @@ namespace Recoil {
                     splitPointIt--;
                 }
             }
-
-            //encoder.reset();
-
-            return result;
         }
+
+
     };
 }
 

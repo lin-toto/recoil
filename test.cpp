@@ -8,7 +8,7 @@
 
 using namespace Recoil;
 
-const int numval = 88 * 2;
+const int numval = 88;
 const int numsplits = 3;
 
 std::array<CdfType, 5> cdfVal = {0, 1, 65533, 65534, 65535};
@@ -36,7 +36,7 @@ int main() {
 
     RansSplitEncoder splitEnc((std::array<Rans32<16>, 4>{}));
     splitEnc.getEncoder().buffer(values, cdf);
-    auto result = splitEnc.flushSplits<numsplits>();
+    auto result = splitEnc.flushSplits<numsplits>(Recoil::EqualBitstreamLength);
 
     RansSplitDecoder splitDec(result);
     for (int s = 0; s < numsplits; s++) {

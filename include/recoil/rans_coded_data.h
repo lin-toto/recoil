@@ -15,12 +15,18 @@ namespace Recoil {
         std::array<MyRans, NInterleaved> finalRans;
     };
 
+    enum SplitStrategy {
+        HeuristicSymbolCount, EqualBitstreamLength
+    };
+
     template<UnsignedType RansStateType, UnsignedType RansBitstreamType,
             BitCountType ProbBits, RansStateType RenormLowerBound, BitCountType WriteBits,
             size_t NInterleaved, size_t NSplits>
     struct RansCodedDataWithSplits : public RansCodedData<
             RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved> {
         using MyRans = Rans<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
+
+        SplitStrategy splitStrategy;
 
         struct Split {
             size_t cutPosition;
