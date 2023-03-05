@@ -27,8 +27,8 @@ namespace Recoil {
             std::array<MyRans, NInterleaved> intermediateRans;
             std::array<size_t, NInterleaved> startSymbolGroupIds;
 
-            inline size_t minSymbolGroupId() { return *std::min(startSymbolGroupIds.begin(), startSymbolGroupIds.end()); }
-            inline size_t maxSymbolGroupId() { return *std::max(startSymbolGroupIds.begin(), startSymbolGroupIds.end()); }
+            inline size_t minSymbolGroupId() { return *std::min_element(startSymbolGroupIds.begin(), startSymbolGroupIds.end()); }
+            inline size_t maxSymbolGroupId() { return *std::max_element(startSymbolGroupIds.begin(), startSymbolGroupIds.end()); }
         };
 
         /*

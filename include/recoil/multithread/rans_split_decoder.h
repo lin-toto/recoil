@@ -24,12 +24,12 @@ namespace Recoil {
         std::vector<ValueType> decodeSplit(const size_t splitId, const Cdf cdf) {
             auto& currentSplit = data.splits[splitId];
             MyRansDecoder decoder(
-                    std::span(data.bitstream.data(), std::min(data.bitstream.size(), currentSplit.cutPosition)),
+                    std::span(data.bitstream.data(), std::min(data.bitstream.size(), currentSplit.cutPosition + 1)),
                     currentSplit.intermediateRans);
 
             if (splitId != 0) {
                 // Step 1: synchronize decoders
-                std::array<bool, NInterleaved> ransInitialized;
+                std::array<bool, NInterleaved> ransInitialized{};
                 bool ransAllInitialized = false;
 
                 for (size_t symbolGroupId = currentSplit.minSymbolGroupId(); !ransAllInitialized; symbolGroupId++) {
@@ -45,9 +45,9 @@ namespace Recoil {
                 }
             }
 
-            size_t decodeStartSymbolId = NInterleaved * (currentSplit.maxSymbolGroupId() + 1);
+            size_t decodeStartSymbolId = splitId == 0 ? 0 : NInterleaved * (currentSplit.maxSymbolGroupId() + 1);
             size_t decodeEndSymbolId = splitId == NSplits - 1 ? data.symbolCount
-                    : NInterleaved * data.splits[splitId + 1].maxSymbolGroupId();
+                    : NInterleaved * (1 + data.splits[splitId + 1].maxSymbolGroupId());
             return decoder.decode(cdf, decodeEndSymbolId - decodeStartSymbolId);
         }
 

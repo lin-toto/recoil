@@ -4,6 +4,7 @@
 #include "recoil/rans_decoder.h"
 #include <x86intrin.h>
 #include <array>
+#include <tuple>
 
 namespace Recoil {
     namespace {

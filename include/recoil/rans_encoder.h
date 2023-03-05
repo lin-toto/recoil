@@ -144,7 +144,7 @@ namespace Recoil {
                 bool renormed = renorm(encoder, encodedSymbol.frequency);
                 if constexpr (RecordIntermediateStates) {
                     if (renormed) {
-                        intermediateStates.push_back({encoder.state,symbol.symbolId});
+                        intermediateStates.push_back({encoder.state, symbol.symbolId});
                     }
                 }
 

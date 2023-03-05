@@ -24,7 +24,7 @@ namespace Recoil {
          * 1: LUT covers all values.
          * n: LUT covers the first ProbBits - n bits of values.
          */
-        static const unsigned int LutGranularity = 1;
+        static const unsigned int LutGranularity = 0;
 
         std::span<CdfType> cdf;
         std::span<ValueType> lut;

@@ -6,6 +6,7 @@
 #include "recoil/rans_encoder.h"
 #include <vector>
 #include <numeric>
+#include <algorithm>
 
 namespace {
     template<class T>
@@ -45,6 +46,7 @@ namespace Recoil {
                     return flushSplits_heuristicSymbolCount<NSplits>();
                 case EqualLength:
                     // TODO
+                    break;
             }
         }
     protected:
@@ -65,7 +67,6 @@ namespace Recoil {
 
             auto targetSymbolCountPerSplit = saveDiv(encoder.symbolBuffer.size(), NSplits);
 
-            size_t splitId = 0;
             auto stateFrontIt = encoder.intermediateStates.begin();
             auto stateRearIt = encoder.intermediateStates.begin();
             for (bool initial = true;
@@ -93,24 +94,25 @@ namespace Recoil {
                 }
 
                 if (potentialSplitPoint) {
-                    auto splitZoneSymbolCount = NInterleaved * (stateRearIt->symbolGroupId() - stateFrontIt->symbolGroupId() + 1);
+                    auto splitZoneSymbolCount = NInterleaved * (stateFrontIt->symbolGroupId() + 1 - stateRearIt->symbolGroupId());
+                    auto cutPosition = std::distance(encoder.intermediateStates.begin(), stateRearIt);
 
-                    auto targetSymbolId = targetSymbolCountPerSplit * (splitId + 1);
-                    auto targetSymbolIdNextSplit = targetSymbolCountPerSplit * (splitId + 2);
-                    auto heuristic = abs(stateRearIt->symbolId - targetSymbolId) + abs(stateRearIt->symbolId - splitZoneSymbolCount - targetSymbolId);
-                    auto heuristicNextSplit = abs(stateRearIt->symbolId - targetSymbolIdNextSplit) + abs(stateRearIt->symbolId - splitZoneSymbolCount - targetSymbolIdNextSplit);
-
-                    if (heuristic < bestSplitPoints[splitId].second)
-                        bestSplitPoints[splitId] = std::make_pair(stateRearIt - encoder.intermediateStates.begin(), heuristic);
-                    if (splitId + 1 < NSplits) {
-                        if (heuristicNextSplit < bestSplitPoints[splitId + 1].second)
-                            bestSplitPoints[splitId + 1] = std::make_pair(stateRearIt - encoder.intermediateStates.begin(), heuristicNextSplit);
-                        if (heuristic > bestSplitPoints[splitId].second) splitId++;
+                    for (auto splitId = 1; splitId < NSplits; splitId++) {
+                        int64_t targetSymbolId = targetSymbolCountPerSplit * splitId;
+                        auto heuristic = std::abs(static_cast<int64_t>(stateRearIt->symbolId) - targetSymbolId) + std::abs(static_cast<int64_t>(stateRearIt->symbolId + splitZoneSymbolCount) - targetSymbolId);
+                        if (heuristic < bestSplitPoints[splitId].second)
+                            bestSplitPoints[splitId] = std::make_pair(cutPosition, heuristic);
                     }
+
                 }
             }
 
-            for (splitId = 0; splitId < NSplits; splitId++) {
+            result.splits[0] = {
+                result.bitstream.size(),
+                result.finalRans,
+                {}
+            };
+            for (auto splitId = 1; splitId < NSplits; splitId++) {
                 auto splitPoint = bestSplitPoints[splitId].first;
                 auto splitPointIt = encoder.intermediateStates.begin() + splitPoint;
                 result.splits[splitId].cutPosition = splitPoint;
@@ -118,7 +120,7 @@ namespace Recoil {
                 size_t foundEncoderCount = 0;
                 while (foundEncoderCount != NInterleaved) {
                     if (!result.splits[splitId].startSymbolGroupIds[splitPointIt->encoderId()]) {
-                        result.splits[splitId].intermediateRans[splitPointIt->encoderId()] = splitPointIt->intermediateRans;
+                        result.splits[splitId].intermediateRans[splitPointIt->encoderId()].state = splitPointIt->intermediateState;
                         result.splits[splitId].startSymbolGroupIds[splitPointIt->encoderId()] = splitPointIt->symbolGroupId();
                         foundEncoderCount++;
                     }
@@ -126,7 +128,7 @@ namespace Recoil {
                 }
             }
 
-            encoder.reset();
+            //encoder.reset();
 
             return result;
         }
