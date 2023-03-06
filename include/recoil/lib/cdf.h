@@ -16,6 +16,7 @@ namespace {
 
 namespace Recoil {
     class Cdf {
+        // TODO: make a CUDA-compatible CDF class
         // TODO: maybe make it a template class in the future?
     public:
         /*

@@ -109,13 +109,14 @@ namespace Recoil {
                 } else return;
             } else {
                 if constexpr (MyRans::oneShotRenorm) {
-                    bool renormed = decoder.decRenormOnce(*bitstreamReverseIt);
-                    if (renormed) bitstreamReverseIt++;
-                } else {
-                    bool renormed = decoder.decRenormOnce(*bitstreamReverseIt);
-                    while (renormed) {
+                    if (decoder.decShouldRenorm()) {
+                        decoder.decRenormOnce(*bitstreamReverseIt);
                         bitstreamReverseIt++;
-                        renormed = decoder.decRenormOnce(*bitstreamReverseIt);
+                    }
+                } else {
+                    while (decoder.decShouldRenorm()) {
+                        decoder.decRenormOnce(*bitstreamReverseIt);
+                        bitstreamReverseIt++;
                     }
                 }
             }

@@ -28,7 +28,7 @@ namespace Recoil {
                     currentSplit.intermediateRans);
 
             if (splitId != 0) {
-                // Step 1: synchronize decoders
+                // synchronize decoders
                 std::array<bool, NInterleaved> ransInitialized{};
                 bool ransAllInitialized = false;
 

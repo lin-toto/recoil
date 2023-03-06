@@ -158,21 +158,18 @@ namespace Recoil {
          * Returns boolean representing if renormalization has occured.
          */
         inline bool renorm(MyRans &encoder, const CdfType frequency) {
-            auto output = encoder.encRenormOnce(frequency);
-            if constexpr (MyRans::oneShotRenorm) {
-                if (output.has_value()) {
-                    bitstream.push_back(output.value());
+            if (encoder.encShouldRenorm(frequency)) {
+                auto output = encoder.encRenormOnce();
+                if constexpr (MyRans::oneShotRenorm) {
+                    bitstream.push_back(output);
+                } else {
+                    do {
+                        bitstream.push_back(output);
+                        output = encoder.encRenormOnce();
+                    } while (encoder.encShouldRenorm(frequency));
                 }
-                return output.has_value();
-            } else {
-                bool renormFlag = false;
-                while (output.has_value()) {
-                    renormFlag = true;
-                    bitstream.push_back(output.value());
-                    output = encoder.encRenormOnce(frequency);
-                }
-                return renormFlag;
-            }
+                return true;
+            } else return false;
         }
     };
 }

@@ -3,10 +3,7 @@ add_custom_target(recoil_examples)
 set(RECOIL_EXAMPLES_COMMON_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/common)
 
 function(recoil_example_add_executable NAME)
-    set(options)
-    set(oneValueArgs)
-    set(multiValueArgs)
-    cmake_parse_arguments(_ "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+    cmake_parse_arguments(_ "" "" "" ${ARGN})
 
     add_executable(${NAME} ${__UNPARSED_ARGUMENTS})
 
@@ -21,8 +18,6 @@ endfunction()
 
 foreach(EXAMPLE
         00_encode_textfile
-        )
-
+        02_encode_textfile_cuda)
     add_subdirectory(${EXAMPLE})
-
 endforeach()

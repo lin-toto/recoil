@@ -36,14 +36,17 @@ namespace Recoil {
             state = (state << bits) | value;
         }
 
-        CUDA_HOST_DEVICE inline std::optional<RansBitstreamType> encRenormOnce(const CdfType frequency) {
+        CUDA_HOST_DEVICE inline bool encShouldRenorm(const CdfType frequency) {
             const RansStateType renormUpperBound = ((RenormLowerBound >> ProbBits) << WriteBits) * frequency;
-            if (state >= renormUpperBound) {
-                const RansBitstreamType mask = (1ul << WriteBits) - 1;
-                Recoil::UnsignedType auto output = static_cast<RansBitstreamType>(state & mask);
-                state >>= WriteBits;
-                return output;
-            } else return std::nullopt;
+            return state >= renormUpperBound;
+        }
+
+        CUDA_HOST_DEVICE inline RansBitstreamType encRenormOnce() {
+            const RansBitstreamType mask = (1ul << WriteBits) - 1;
+
+            Recoil::UnsignedType auto output = static_cast<RansBitstreamType>(state & mask);
+            state >>= WriteBits;
+            return output;
         }
 
         CUDA_HOST_DEVICE [[nodiscard]] inline CdfType decGetProbability() const {
@@ -63,12 +66,9 @@ namespace Recoil {
             state = (state >> ProbBits) * lastFrequency + (state & mask) - lastStart;
         }
 
-        CUDA_HOST_DEVICE inline bool decRenormOnce(const RansBitstreamType next) {
-            if (state < RenormLowerBound) {
-                state = (state << WriteBits) | next;
-                return true;
-            } else return false;
-        }
+        CUDA_HOST_DEVICE inline bool decShouldRenorm() { return state < RenormLowerBound; }
+
+        CUDA_HOST_DEVICE inline void decRenormOnce(const RansBitstreamType next) { state = (state << WriteBits) | next; }
     };
 
     template<BitCountType ProbBits, auto RenormLowerBound = 1ull << 31>
