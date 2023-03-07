@@ -136,7 +136,7 @@ namespace Recoil {
         template<size_t NSplits>
         void buildSplitsMetadata(const std::array<size_t, NSplits>& splitPoints, MyRansCodedDataWithSplits<NSplits>& result) {
             result.splits[0] = {
-                    result.bitstream.size(),
+                    result.bitstream.size() - 1,
                     result.finalRans,
                     {}
             };
