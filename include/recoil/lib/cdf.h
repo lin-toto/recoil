@@ -47,44 +47,44 @@ namespace Recoil {
             if constexpr (LutGranularity == 1) {
                 return lut[probability];
             } else {
-				auto offset = 0;
-				if(LutGranularity == 0){
-					
-				} else {
-					offset=lut[probability>>(LutGranularity-1)];
-				}
-				auto it = std::find_if(cdf.begin() + offset, cdf.end(), [probability](auto v) {
-					return v > probability;
-				});
+                auto offset = 0;
+                if(LutGranularity == 0){
+                    
+                } else {
+                    offset=lut[probability>>(LutGranularity-1)];
+                }
+                auto it = std::find_if(cdf.begin() + offset, cdf.end(), [probability](auto v) {
+                    return v > probability;
+                });
 
-				if (it != cdf.end()) [[likely]]
-					return it - cdf.begin() - 1;
-				else
-					return std::nullopt;
+                if (it != cdf.end()) [[likely]]
+                    return it - cdf.begin() - 1;
+                else
+                    return std::nullopt;
             }
         }
 
         template<uint8_t ProbBits>
         static auto buildLut(std::span<CdfType> cdf) {
             std::array<ValueType, mypow(2, ProbBits)> result{};
-			std::array<ValueType, mypow(2, ProbBits)> resultTrim{};
+            std::array<ValueType, mypow(2, ProbBits)> resultTrim{};
             for (auto it = cdf.begin() + 1; it != cdf.end(); it++) {
                 for (auto i = *(it - 1); i < *it; i++) {
                     result[i] = it - cdf.begin() - 1;
-					//std::cout<<i<<" "<<result[i]<<std::endl;
+                    //std::cout<<i<<" "<<result[i]<<std::endl;
                 }
             }
-			if(LutGranularity>1){
-				//std::cout<<result.size()<<std::endl;
-				for (int i = 0; i<(result.size()>>(LutGranularity-1)); i++){
-					resultTrim[i]=result[i>>(LutGranularity-1)];
-					//std::cout<<i<<" "<<resultTrim[i]<<std::endl;
-					//std::cout<<(i>>(LutGranularity-1))<<std::endl;
-				}
-				return resultTrim;
-			} else {
-				return result;
-			}
+            if(LutGranularity>1){
+                //std::cout<<result.size()<<std::endl;
+                for (int i = 0; i<(result.size()>>(LutGranularity-1)); i++){
+                    resultTrim[i]=result[i>>(LutGranularity-1)];
+                    //std::cout<<i<<" "<<resultTrim[i]<<std::endl;
+                    //std::cout<<(i>>(LutGranularity-1))<<std::endl;
+                }
+                return resultTrim;
+            } else {
+                return result;
+            }
             
         }
     };
