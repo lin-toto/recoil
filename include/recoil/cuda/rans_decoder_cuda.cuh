@@ -26,7 +26,10 @@ namespace Recoil {
                 : bitstreamPtr(bitstream + offset), decoder(rans) {
         }
 
-        CUDA_DEVICE void decode(const CdfType *cdf, const ValueType *lut, const uint32_t count) {
+        CUDA_DEVICE void decode(
+                CUDA_DEVICE_PTR const CdfType * __restrict__ cdf,
+                CUDA_DEVICE_PTR const ValueType * __restrict__ lut,
+                const uint32_t count) {
             const unsigned int splitId = blockIdx.x, decoderId = threadIdx.x;
             for (uint32_t i = 0; i + NInterleaved < count; i += NInterleaved) {
                 //printf("Iteration: %u\n", i);
@@ -41,10 +44,12 @@ namespace Recoil {
             }
         }
     protected:
-        RansBitstreamType *bitstreamPtr;
+        CUDA_DEVICE_PTR RansBitstreamType * __restrict__ bitstreamPtr;
         MyRans decoder;
 
-        CUDA_DEVICE inline uint32_t decodeOnce(const CdfType *cdf, const ValueType *lut) {
+        CUDA_DEVICE inline uint32_t decodeOnce(
+                CUDA_DEVICE_PTR const CdfType * __restrict__ cdf,
+                CUDA_DEVICE_PTR const ValueType * __restrict__ lut) {
             const unsigned int splitId = blockIdx.x, decoderId = threadIdx.x;
 
             auto probability = decoder.decGetProbability();
