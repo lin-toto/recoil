@@ -26,7 +26,7 @@ namespace Recoil {
          * 1: LUT covers all values.
          * n: LUT covers the first ProbBits - n bits of values.
          */
-        static const unsigned int LutGranularity = 2;
+        static const unsigned int LutGranularity = 0;
 
         std::span<CdfType> cdf;
         std::span<ValueType> lut;
@@ -46,8 +46,14 @@ namespace Recoil {
         [[nodiscard]] inline std::optional<ValueType> findValue(CdfType probability) const {
             if constexpr (LutGranularity == 1) {
                 return lut[probability];
-            } else if constexpr (LutGranularity > 1){
-				auto it = std::find_if(cdf.begin() + lut[probability/LutGranularity], cdf.end(), [probability](auto v) {
+            } else {
+				auto offset = 0;
+				if(LutGranularity == 0){
+					
+				} else {
+					offset=lut[probability>>(LutGranularity-1)];
+				}
+				auto it = std::find_if(cdf.begin() + offset, cdf.end(), [probability](auto v) {
 					return v > probability;
 				});
 
@@ -55,17 +61,7 @@ namespace Recoil {
 					return it - cdf.begin() - 1;
 				else
 					return std::nullopt;
-            } else {
-				auto it = std::find_if(cdf.begin(), cdf.end(), [probability](auto v) {
-                    return v > probability;
-                });
-
-                if (it != cdf.end()) [[likely]]
-                    return it - cdf.begin() - 1;
-                else
-                    return std::nullopt;
-				
-			}
+            }
         }
 
         template<uint8_t ProbBits>
@@ -80,9 +76,10 @@ namespace Recoil {
             }
 			if(LutGranularity>1){
 				//std::cout<<result.size()<<std::endl;
-				for (int i = 0; i<result.size()/LutGranularity; i++){
-					resultTrim[i]=result[i*LutGranularity];
+				for (int i = 0; i<(result.size()>>(LutGranularity-1)); i++){
+					resultTrim[i]=result[i>>(LutGranularity-1)];
 					//std::cout<<i<<" "<<resultTrim[i]<<std::endl;
+					//std::cout<<(i>>(LutGranularity-1))<<std::endl;
 				}
 				return resultTrim;
 			} else {
