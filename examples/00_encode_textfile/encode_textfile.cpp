@@ -29,8 +29,8 @@ int main(int argc, const char **argv) {
     std::cout << "File size: " << text.length() << " bytes" << std::endl;
 
     auto cdfVec = buildCdfFromString(text, ProbBits);
-    auto lut = Cdf::buildLut<ProbBits>(std::span{cdfVec});
-    Cdf cdf((std::span{cdfVec}), (std::span{lut}));
+    auto lutVec = Cdf::buildLut<ProbBits>(std::span{cdfVec});
+    Cdf cdf((std::span{cdfVec}), (std::span{lutVec}));
 
     RansEncoder enc((std::array<Rans32<ProbBits>, NInterleaved>{}));
     std::vector<ValueType> symbols{text.begin(), text.end()};
@@ -55,26 +55,6 @@ int main(int argc, const char **argv) {
         std::cerr << "AVX2 Decoding failed!" << std::endl;
     }
     std::cout << "Throughput: " << text.length() / (time / 1000000.0) / 1024 / 1024 << " MB/s" << std::endl;
-
-    const int threads = 24;
-    std::array<std::future<unsigned int>, threads> tasks;
-    for (int i = 0; i < threads; i++) {
-        tasks[i] = std::async(std::launch::async, [&result, &cdf, &symbols] {
-            RansDecoder_AVX2_32x8n decAVX2((std::span{result.bitstream}), result.finalRans);
-            auto time = timeIt([&]() { auto decoded = decAVX2.decode(cdf, symbols.size()); });
-            return time;
-        });
-    }
-
-    double sumThroughput = 0;
-    for (int i = 0; i < threads; i++) {
-        tasks[i].wait();
-        auto time = tasks[i].get();
-        auto t = text.length() / (time / 1000000.0) / 1024 / 1024;
-        std::cout << "Multithread Throughput: " << t << " MB/s" << std::endl;
-        sumThroughput += t;
-    }
-    std::cout << "Sum: " << sumThroughput << " MB/s" << std::endl;
 
     return 0;
 }
