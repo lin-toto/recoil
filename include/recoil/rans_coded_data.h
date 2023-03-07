@@ -29,12 +29,12 @@ namespace Recoil {
         SplitStrategy splitStrategy;
 
         struct Split {
-            size_t cutPosition;
+            size_t cutPosition; // TODO: need to verify this is actually safe!
             std::array<MyRans, NInterleaved> intermediateRans;
             std::array<size_t, NInterleaved> startSymbolGroupIds;
 
-            inline size_t minSymbolGroupId() { return *std::min_element(startSymbolGroupIds.begin(), startSymbolGroupIds.end()); }
-            inline size_t maxSymbolGroupId() { return *std::max_element(startSymbolGroupIds.begin(), startSymbolGroupIds.end()); }
+            inline size_t minSymbolGroupId() const { return *std::min_element(startSymbolGroupIds.begin(), startSymbolGroupIds.end()); }
+            inline size_t maxSymbolGroupId() const { return *std::max_element(startSymbolGroupIds.begin(), startSymbolGroupIds.end()); }
         };
 
         /*
