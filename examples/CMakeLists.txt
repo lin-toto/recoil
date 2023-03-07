@@ -18,6 +18,7 @@ endfunction()
 
 foreach(EXAMPLE
         00_encode_textfile
-        02_encode_textfile_cuda)
+        01_encode_textfile_split
+        02_encode_textfile_split_cuda)
     add_subdirectory(${EXAMPLE})
 endforeach()

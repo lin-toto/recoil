@@ -123,7 +123,7 @@ namespace Recoil {
                     EqualBitstreamLength, {}
             };
 
-            auto targetLengthPerSplit = saveDiv(encoder.symbolBuffer.size(), NSplits);
+            auto targetLengthPerSplit = saveDiv(result.bitstream.size(), NSplits);
             std::array<size_t, NSplits> splitPoints;
             for (auto splitId = 1; splitId < NSplits; splitId++) {
                 splitPoints[splitId] = (NSplits - splitId) * targetLengthPerSplit;

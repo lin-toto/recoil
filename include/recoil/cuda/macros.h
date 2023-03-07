@@ -1,6 +1,9 @@
 #ifndef RECOIL_CUDA_MACROS_H
 #define RECOIL_CUDA_MACROS_H
 
+// Doesn't really do anything, just to mark that the pointer points to device memory.
+#define CUDA_DEVICE_PTR
+
 #if defined(__NVCC__) || (defined(__clang__) && defined(__CUDA__))
 #define CUDA_HOST_DEVICE __device__ __host__
 #define CUDA_DEVICE __device__
