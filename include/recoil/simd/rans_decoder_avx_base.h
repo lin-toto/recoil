@@ -42,7 +42,7 @@ namespace Recoil {
 
         std::vector<ValueType> decode(const Cdf cdf, const size_t count) {
             // TODO: support LUT/CDF mixed lookup
-            static_assert(Cdf::LutGranularity == 1, "Only support LUT lookup");
+            //static_assert(Cdf::LutGranularity == 1, "Only support LUT lookup");
 
             std::vector<ValueType> result;
             result.reserve(count);

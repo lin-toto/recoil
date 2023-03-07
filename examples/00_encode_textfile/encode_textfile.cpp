@@ -56,7 +56,7 @@ int main(int argc, const char **argv) {
     }
     std::cout << "Throughput: " << text.length() / (time / 1000000.0) / 1024 / 1024 << " MB/s" << std::endl;
 
-    const int threads = 32;
+    const int threads = 24;
     std::array<std::future<unsigned int>, threads> tasks;
     for (int i = 0; i < threads; i++) {
         tasks[i] = std::async(std::launch::async, [&result, &cdf, &symbols] {

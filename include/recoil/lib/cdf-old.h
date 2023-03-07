@@ -6,7 +6,6 @@
 #include <optional>
 #include <algorithm>
 #include <cmath>
-#include <iostream>
 
 namespace {
     template <typename T>
@@ -17,7 +16,6 @@ namespace {
 
 namespace Recoil {
     class Cdf {
-        // TODO: make a CUDA-compatible CDF class
         // TODO: maybe make it a template class in the future?
     public:
         /*
@@ -26,7 +24,7 @@ namespace Recoil {
          * 1: LUT covers all values.
          * n: LUT covers the first ProbBits - n bits of values.
          */
-        static const unsigned int LutGranularity = 2;
+        static const unsigned int LutGranularity = 1;
 
         std::span<CdfType> cdf;
         std::span<ValueType> lut;
@@ -46,17 +44,8 @@ namespace Recoil {
         [[nodiscard]] inline std::optional<ValueType> findValue(CdfType probability) const {
             if constexpr (LutGranularity == 1) {
                 return lut[probability];
-            } else if constexpr (LutGranularity > 1){
-				auto it = std::find_if(cdf.begin() + lut[probability/LutGranularity], cdf.end(), [probability](auto v) {
-					return v > probability;
-				});
-
-				if (it != cdf.end()) [[likely]]
-					return it - cdf.begin() - 1;
-				else
-					return std::nullopt;
             } else {
-				auto it = std::find_if(cdf.begin(), cdf.end(), [probability](auto v) {
+                auto it = std::find_if(cdf.begin(), cdf.end(), [probability](auto v) {
                     return v > probability;
                 });
 
@@ -64,31 +53,20 @@ namespace Recoil {
                     return it - cdf.begin() - 1;
                 else
                     return std::nullopt;
-				
-			}
+            }
         }
 
         template<uint8_t ProbBits>
         static auto buildLut(std::span<CdfType> cdf) {
             std::array<ValueType, mypow(2, ProbBits)> result{};
-			std::array<ValueType, mypow(2, ProbBits)> resultTrim{};
+
             for (auto it = cdf.begin() + 1; it != cdf.end(); it++) {
                 for (auto i = *(it - 1); i < *it; i++) {
                     result[i] = it - cdf.begin() - 1;
-					//std::cout<<i<<" "<<result[i]<<std::endl;
                 }
             }
-			if(LutGranularity>1){
-				//std::cout<<result.size()<<std::endl;
-				for (int i = 0; i<result.size()/LutGranularity; i++){
-					resultTrim[i]=result[i*LutGranularity];
-					//std::cout<<i<<" "<<resultTrim[i]<<std::endl;
-				}
-				return resultTrim;
-			} else {
-				return result;
-			}
-            
+
+            return result;
         }
     };
 }
