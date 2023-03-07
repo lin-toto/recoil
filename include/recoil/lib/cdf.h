@@ -5,7 +5,6 @@
 #include <span>
 #include <optional>
 #include <algorithm>
-#include <cmath>
 
 namespace Recoil {
     class Cdf {
@@ -18,7 +17,7 @@ namespace Recoil {
          * 1: LUT covers all values.
          * n: LUT covers the first ProbBits - n bits of values.
          */
-        static const unsigned int LutGranularity = 4;
+        static const unsigned int LutGranularity = 1;
 
         std::span<CdfType> cdf;
         std::span<ValueType> lut;
@@ -52,7 +51,7 @@ namespace Recoil {
 
         template<uint8_t ProbBits>
         static auto buildLut(std::span<CdfType> cdf) {
-            std::array<ValueType, (1 >> ProbBits)> result{};
+            std::array<ValueType, (1 << (ProbBits - LutGranularity + 1))> result{};
 
             for (auto it = cdf.begin() + 1; it != cdf.end(); it++) {
                 std::fill(
