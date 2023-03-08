@@ -44,15 +44,17 @@ namespace Recoil {
 
         [[nodiscard]] inline std::tuple<u32x8, u32x8, u32x8> getSymbolsAndStartsAndFrequenciesSimd_staticCdf_LutOnly(
                 const u32x8 probabilitiesSimd, const Cdf cdf) const override {
-            const u32x8 mask16b = _mm256_set1_epi32(0xffff);
+            const u32x8 valueMask = _mm256_set1_epi32((1 << (8 * sizeof(ValueType))) - 1);
+            const u32x8 cdfMask = _mm256_set1_epi32((1 << (8 * sizeof(CdfType))) - 1);
 
             u32x8 symbols = _mm256_and_si256(
-                    _mm256_i32gather_epi32(reinterpret_cast<const int*>(&(*cdf.lut.begin())), probabilitiesSimd, 2),
-                    mask16b);
+                    _mm256_i32gather_epi32(reinterpret_cast<const int*>(&(*cdf.lut.begin())), probabilitiesSimd, sizeof(ValueType)),
+                    valueMask);
 
-            u32x8 cdfReadout = _mm256_i32gather_epi32(reinterpret_cast<const int*>(&(*cdf.cdf.begin())), symbols, 2);
-            u32x8 starts = _mm256_and_si256(cdfReadout, mask16b);
-            u32x8 nextStarts = _mm256_srli_epi32(cdfReadout, 16);
+            u32x8 cdfReadout = _mm256_i32gather_epi32(reinterpret_cast<const int*>(&(*cdf.cdf.begin())), symbols, sizeof(CdfType));
+            u32x8 starts = _mm256_and_si256(cdfReadout, cdfMask);
+            u32x8 nextStarts = _mm256_srli_epi32(cdfReadout, sizeof(CdfType) * 8);
+            if constexpr (sizeof(cdfMask) == 1) nextStarts = _mm256_and_si256(nextStarts, cdfMask);
             u32x8 frequencies = _mm256_sub_epi32(nextStarts, starts);
 
             return std::make_tuple(symbols, starts, frequencies);
@@ -66,7 +68,7 @@ namespace Recoil {
             ransSimd = _mm256_sub_epi32(ransSimd, lastStarts);
         }
 
-        inline void renorm(u32x8 &ransSimd) override {
+        inline void renormSimd(u32x8 &ransSimd) override {
             // Check renormalization flags; dirty hack because unsigned comparison is not supported in AVX2
             const u32x8 renormLowerBound = _mm256_set1_epi32(RenormLowerBound - 0x80000000);
             const u32x8 signFlag = _mm256_set1_epi32(static_cast<int>(0x80000000u));

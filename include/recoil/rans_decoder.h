@@ -99,6 +99,7 @@ namespace Recoil {
                 return symbol.value();
             } else {
                 // TODO: if probability is a bypass sentinel, handle as bypass symbol
+                throw std::runtime_error("Bypass decoding not implemented");
             }
         }
 

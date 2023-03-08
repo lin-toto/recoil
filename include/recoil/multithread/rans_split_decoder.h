@@ -4,6 +4,7 @@
 #include "recoil/rans.h"
 #include "recoil/rans_coded_data.h"
 #include "recoil/rans_decoder.h"
+#include "recoil/simd/rans_decoder_avx2_32x8n.h"
 #include "recoil/lib/cdf.h"
 #include <span>
 
@@ -16,8 +17,9 @@ namespace Recoil {
     protected:
         using MyRansCodedDataWithSplits = RansCodedDataWithSplits<
                 RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved, NSplits>;
-        using MyRansDecoder = RansDecoder<
-                RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved>;
+        //using MyRansDecoder = RansDecoder<
+                //RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved>;
+        using MyRansDecoder = RansDecoder_AVX2_32x8n<ProbBits, RenormLowerBound, NInterleaved>;
     public:
         explicit RansSplitDecoder(MyRansCodedDataWithSplits data) : data(std::move(data)) {}
 

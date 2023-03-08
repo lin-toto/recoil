@@ -16,8 +16,8 @@ using namespace Recoil;
 using namespace Recoil::Examples;
 
 const uint8_t ProbBits = 12;
-const size_t NInterleaved = 8;
-const size_t NSplit = 128;
+const size_t NInterleaved = 16;
+const size_t NSplit = 56;
 
 int main(int argc, const char **argv) {
     if (argc != 2) {
@@ -31,9 +31,9 @@ int main(int argc, const char **argv) {
     auto cdfVec = buildCdfFromString(text, ProbBits);
     auto lutVec = Cdf::buildLut<ProbBits>(std::span{cdfVec});
     Cdf cdf((std::span{cdfVec}), (std::span{lutVec}));
-
+    auto symbols = stringToSymbols(text);
     RansSplitEncoder enc((std::array<Rans32<ProbBits>, NInterleaved>{}));
-    std::vector<ValueType> symbols{text.begin(), text.end()};
+
     enc.getEncoder().buffer(symbols, cdf);
     auto result = enc.flushSplits<NSplit>();
 

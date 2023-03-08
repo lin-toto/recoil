@@ -11,7 +11,6 @@
 #include <vector>
 #include <cstdint>
 #include <array>
-#include <future>
 
 using namespace Recoil;
 using namespace Recoil::Examples;
@@ -33,7 +32,7 @@ int main(int argc, const char **argv) {
     Cdf cdf((std::span{cdfVec}), (std::span{lutVec}));
 
     RansEncoder enc((std::array<Rans32<ProbBits>, NInterleaved>{}));
-    std::vector<ValueType> symbols{text.begin(), text.end()};
+    auto symbols = stringToSymbols(text);
     enc.buffer(symbols, cdf);
     auto result = enc.flush();
 

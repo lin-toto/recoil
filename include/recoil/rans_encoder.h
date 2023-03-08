@@ -151,6 +151,7 @@ namespace Recoil {
                 encoder.encPut(encodedSymbol.start, encodedSymbol.frequency);
             } else {
                 // TODO: implement bypass coding
+                throw std::runtime_error("Bypass encoding not implemented");
             }
         }
 

@@ -4,11 +4,12 @@
 
 namespace Recoil::Examples {
     std::vector<CdfType> buildCdfFromString(std::string_view str, uint8_t probBits) {
-        static const auto characterCount = 128;
+        static const auto characterCount = 256;
         const CdfType targetSum = (1 << probBits) - 1;
 
         std::array<size_t, characterCount> count{};
-        for (auto chr : str) count[chr]++;
+        for (unsigned char chr : str) count[chr]++;
+
 
         std::array<size_t, characterCount + 1> rawCdf{};
         std::partial_sum(count.begin(), count.end(), rawCdf.begin() + 1);

@@ -15,7 +15,7 @@ using namespace Recoil::Examples;
 
 const uint8_t ProbBits = 12;
 const size_t NInterleaved = 32;
-const size_t NSplit = 136;
+const size_t NSplit = 200;
 
 int main(int argc, const char **argv) {
     if (argc != 2) {
@@ -33,7 +33,7 @@ int main(int argc, const char **argv) {
     Cdf cdf(cdfSpan, lutSpan);
 
     RansSplitEncoder enc((std::array<Rans32<ProbBits>, NInterleaved>{}));
-    std::vector<ValueType> symbols{text.begin(), text.end()};
+    auto symbols = stringToSymbols(text);
     enc.getEncoder().buffer(symbols, cdf);
     auto result = enc.flushSplits<NSplit>(/*SplitStrategy::EqualBitstreamLength*/);
 
@@ -46,10 +46,6 @@ int main(int argc, const char **argv) {
 
     RansSplitDecoderCuda splitDecoderCuda(result);
     auto decoded = splitDecoderCuda.decodeAll(cdfGpu, lutGpu);
-
-    /*for (int i = 0; i < decoded.size(); i ++) {
-        printf("%c", decoded[i]);
-    }*/
 
     if (std::equal(symbols.begin(), symbols.end(), decoded.begin())) {
         std::cout << "CUDA Decoding success!" << std::endl;
