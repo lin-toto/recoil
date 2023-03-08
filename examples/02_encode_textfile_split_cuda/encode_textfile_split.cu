@@ -15,7 +15,7 @@ using namespace Recoil::Examples;
 
 const uint8_t ProbBits = 12;
 const size_t NInterleaved = 32;
-const size_t NSplit = 1024;
+const size_t NSplit = 136;
 
 int main(int argc, const char **argv) {
     if (argc != 2) {

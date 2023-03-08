@@ -30,7 +30,7 @@ namespace Recoil {
                 size_t NInterleaved, size_t NSplits>
         CUDA_GLOBAL void launchCudaDecode_staticCdf(
                 uint32_t totalSymbolCount,
-                CUDA_DEVICE_PTR RansBitstreamType *bitstream,
+                CUDA_DEVICE_PTR const RansBitstreamType *bitstream,
                 CUDA_DEVICE_PTR ValueType *outputBuffer,
                 CUDA_DEVICE_PTR SplitCuda<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved> *splits,
                 CUDA_DEVICE_PTR CdfType *cdf,
@@ -49,41 +49,27 @@ namespace Recoil {
                     currentSplit.intermediateRans[decoderId]);
 
             if (splitId != 0) {
-                bool ransInitialized = false, ransAllInitialized = false;
-                for (uint32_t symbolGroupId = currentSplit.minSymbolGroupId; !ransAllInitialized; symbolGroupId++) {
-                    bool shouldRenorm = false;
+                bool ransInitialized = false;
+                uint32_t ransInitFlag = 0x00;
+                // FIXME: support other than 32 threads
+                for (uint32_t symbolGroupId = currentSplit.minSymbolGroupId; ransInitFlag != 0xffffffff; symbolGroupId++) {
                     if (!ransInitialized) {
                         if (currentSplit.startSymbolGroupIds[decoderId] == symbolGroupId) {
+                            // Rans was not initialized, but current group is start symbol group
+                            ransInitFlag |= decoder.renorm();
                             ransInitialized = true;
-                            shouldRenorm = true;
+                        } else {
+                            // Rans was not initialized, and still awaits initialization
+                            // Update bitstream pointer only depending on other threads.
+                            auto vote = __ballot_sync(0xffffffff, false);
+                            decoder.bitstreamPtr -= __popc(vote);
+                            ransInitFlag |= vote;
                         }
                     } else {
-                        auto probability = decoder.decoder.decGetProbability();
-                        auto symbol = lut[probability];
-                        //printf("threadid %d sym %c\n", threadIdx.x, symbol);
-
-                        // TODO: add LUT + CDF mixed support
-                        auto start = cdf[symbol];
-                        auto frequency = cdf[symbol + 1] - cdf[symbol];
-                        decoder.decoder.decAdvanceSymbol(start, frequency);
-                        shouldRenorm = true;
+                        // Perform normal decoding but do not record result.
+                        decoder.decodeOnce_noRenorm(cdf, lut);
+                        ransInitFlag |= decoder.renorm();
                     }
-
-                    bool shouldRenorm_ = decoder.decoder.decShouldRenorm() && shouldRenorm;
-                    // TODO: fix ballot_sync flag to support other than 32 threads
-                    auto vote = __ballot_sync(0xffffffff, shouldRenorm_);
-
-                    if (shouldRenorm_) {
-                        auto offset = 1 - __popc(vote & getLaneMaskLe());
-                        decoder.decoder.decRenormOnce(decoder.bitstreamPtr[offset]);
-                        //printf("threadid %d renorm read from %d\n", threadIdx.x, offset);
-                    }
-
-                    auto amountRead = __popc(vote);
-                    decoder.bitstreamPtr -= amountRead;
-
-                    // FIXME: support other than 32 threads
-                    ransAllInitialized = __ballot_sync(0xffffffff, ransInitialized) == 0xffffffff;
                 }
             }
 

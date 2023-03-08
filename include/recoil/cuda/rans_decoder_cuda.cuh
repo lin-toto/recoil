@@ -23,7 +23,7 @@ namespace Recoil {
         using MyRans = Rans<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
     public:
         CUDA_DEVICE RansDecoderCuda(
-                CUDA_DEVICE_PTR RansBitstreamType *bitstream, uint32_t bitstreamOffset,
+                CUDA_DEVICE_PTR const RansBitstreamType *bitstream, uint32_t bitstreamOffset,
                 CUDA_DEVICE_PTR ValueType *output, uint32_t outputOffset,
                 MyRans rans) : bitstreamPtr(bitstream + bitstreamOffset), outputPtr(output + outputOffset), decoder(rans) {}
 
@@ -44,24 +44,35 @@ namespace Recoil {
             }
         }
 
+    //protected:
         CUDA_DEVICE inline ValueType decodeOnce(
                 CUDA_DEVICE_PTR const CdfType * __restrict__ cdf,
                 CUDA_DEVICE_PTR const ValueType * __restrict__ lut) {
-            auto probability = decoder.decGetProbability();
-            auto symbol = lut[probability];
-            //printf("threadid %d sym %c\n", threadIdx.x, symbol);
-
-            // TODO: add LUT + CDF mixed support
-            auto start = cdf[symbol];
-            auto frequency = cdf[symbol + 1] - cdf[symbol];
-            decoder.decAdvanceSymbol(start, frequency);
+            auto symbol = decodeOnce_noRenorm(cdf, lut);
 
             renorm();
 
             return symbol;
         }
 
-        CUDA_DEVICE inline uint8_t renorm() {
+        CUDA_DEVICE inline ValueType decodeOnce_noRenorm(
+                CUDA_DEVICE_PTR const CdfType * __restrict__ cdf,
+                CUDA_DEVICE_PTR const ValueType * __restrict__ lut) {
+            auto probability = decoder.decGetProbability();
+            auto symbol = lut[probability];
+
+            // TODO: add LUT + CDF mixed support
+            auto start = cdf[symbol];
+            auto frequency = cdf[symbol + 1] - cdf[symbol];
+            decoder.decAdvanceSymbol(start, frequency);
+
+            return symbol;
+        }
+
+        /*
+         * Return flag representing which threads renormalized.
+         */
+        CUDA_DEVICE inline uint32_t renorm() {
             bool shouldRenorm = decoder.decShouldRenorm();
             // TODO: fix ballot_sync flag to support other than 32 threads
             auto vote = __ballot_sync(0xffffffff, shouldRenorm);
@@ -69,19 +80,17 @@ namespace Recoil {
             if (shouldRenorm) {
                 auto offset = 1 - __popc(vote & getLaneMaskLe());
                 decoder.decRenormOnce(bitstreamPtr[offset]);
-                //printf("threadid %d renorm read from %d\n", threadIdx.x, offset);
             }
 
             auto amountRead = __popc(vote);
             bitstreamPtr -= amountRead;
 
-            return amountRead;
+            return vote;
         }
 
-    //protected:
         MyRans decoder;
-        CUDA_DEVICE_PTR RansBitstreamType * bitstreamPtr;
-        CUDA_DEVICE_PTR ValueType * outputPtr;
+        CUDA_DEVICE_PTR const RansBitstreamType * __restrict__ bitstreamPtr;
+        CUDA_DEVICE_PTR ValueType * __restrict__ outputPtr;
     };
 }
 
