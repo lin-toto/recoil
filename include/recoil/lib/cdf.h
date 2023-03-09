@@ -7,7 +7,7 @@
 #include <algorithm>
 
 namespace Recoil {
-    class Cdf {
+     class [[deprecated]]  Cdf {
         // TODO: make a CUDA-compatible CDF class
         // TODO: maybe make it a template class in the future?
     public:
@@ -15,7 +15,7 @@ namespace Recoil {
          * BitKnit like mixed LUT/CDF lookup. In bits.
          * 0: no LUT.
          * 1: LUT covers all values.
-         * n: LUT covers the first ProbBits - n bits of values.
+         * n: LUT covers the first ProbBits - n + 1 bits of values.
          */
         static const unsigned int LutGranularity = 1;
 

@@ -44,4 +44,18 @@ namespace Recoil::Examples {
             }
         }
     }
+
+    std::vector<ValueType> buildLut(std::span<CdfType> cdf, uint8_t probBits, uint8_t lutGranularity) {
+        std::vector<ValueType> result;
+        result.resize(1 << (probBits - lutGranularity + 1));
+
+        for (auto it = cdf.begin() + 1; it != cdf.end(); it++) {
+            std::fill(
+                    result.begin() + ((*(it - 1) + (1 << (lutGranularity - 1)) - 1) >> (lutGranularity - 1)),
+                    result.begin() + (*it >> (lutGranularity - 1)),
+                    it - cdf.begin() - 1
+            );
+        }
+        return result;
+    }
 }
