@@ -1,7 +1,7 @@
 #ifndef RECOIL_CDF_LUT_POOL_H
 #define RECOIL_CDF_LUT_POOL_H
 
-#include <recoil/cuda/macros.h>
+#include "recoil/cuda/macros.h"
 
 #include <concepts>
 #include <cstdint>
@@ -23,10 +23,6 @@ namespace Recoil {
     class CdfLutPool {
         static_assert(LutGranularity < ProbBits, "LutGranularity must be smaller than ProbBits");
     public:
-        inline constexpr size_t eachLutSize() const {
-            if constexpr (LutGranularity == 0) return 0; else return 1 << (ProbBits - LutGranularity + 1);
-        }
-
         CdfLutPool(size_t cdfSize, size_t lutSize) : cdfSize(cdfSize), lutSize(lutSize) {
             if (cdfSize * sizeof(CdfType) > std::numeric_limits<CdfLutOffsetType>::max()
                 || lutSize * sizeof(ValueType) > std::numeric_limits<CdfLutOffsetType>::max()) [[unlikely]]
@@ -43,8 +39,18 @@ namespace Recoil {
         CdfLutPool(CdfType *cdfPool, size_t cdfSize, ValueType *lutPool, size_t lutSize)
             : cdfPool(cdfPool), cdfSize(cdfSize), lutPool(lutPool), lutSize(lutSize) {}
 
+        explicit CdfLutPool(const CdfLutPool&) = delete;
+        CdfLutPool& operator=(const CdfLutPool&) = delete;
+
         ~CdfLutPool() {
             if (pool != nullptr) delete[] pool;
+        }
+
+        CUDA_HOST_DEVICE inline const CdfType *getCdfPool() const { return cdfPool; }
+        CUDA_HOST_DEVICE inline const ValueType *getLutPool() const { return lutPool; }
+
+        inline constexpr size_t eachLutSize() const {
+            if constexpr (LutGranularity == 0) return 0; else return 1 << (ProbBits - LutGranularity + 1);
         }
 
         CdfLutOffsetType insertCdf(const std::vector<CdfType> &cdf) {
