@@ -11,11 +11,11 @@
 namespace Recoil {
     class DecodingReachesEndException : public std::exception {};
 
-    template<UnsignedType RansStateType, UnsignedType RansBitstreamType,
-            BitCountType ProbBits, RansStateType RenormLowerBound, BitCountType WriteBits,
+    template<std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
+            uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits,
             size_t NInterleaved>
     class RansDecoder {
-        template<UnsignedType T, UnsignedType, BitCountType, T, BitCountType, size_t, size_t>
+        template<std::unsigned_integral T, std::unsigned_integral, uint8_t, T, uint8_t, size_t, size_t>
         friend class RansSplitDecoder;
     protected:
         using MyRans = Rans<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;

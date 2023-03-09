@@ -34,7 +34,7 @@ int main() {
     }
     std::cout << std::endl;
 
-    RansSplitEncoder splitEnc((std::array<Rans32<16>, 4>{}));
+    RansSplitEncoder splitEnc((std::array<Rans32<16>, 8>{}));
     splitEnc.getEncoder().buffer(values, cdf);
     auto result = splitEnc.flushSplits<numsplits>(Recoil::EqualBitstreamLength);
 

@@ -1,18 +1,15 @@
 #ifndef RECOIL_RANS_H
 #define RECOIL_RANS_H
 
-#include "recoil/type_aliases.h"
+#include "recoil/type_defs.h"
 #include "recoil/lib/cdf.h"
 #include "recoil/cuda/macros.h"
-#include <type_traits>
 #include <optional>
+#include <concepts>
 
 namespace Recoil {
-    template<class T>
-    concept UnsignedType = std::is_unsigned_v<T>;
-
-    template<UnsignedType RansStateType, UnsignedType RansBitstreamType,
-            BitCountType ProbBits, RansStateType RenormLowerBound, BitCountType WriteBits = 8 * sizeof(RansBitstreamType)>
+    template<std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
+            uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits = 8 * sizeof(RansBitstreamType)>
     class Rans {
         static_assert(WriteBits <= sizeof(RansBitstreamType) * 8,
                       "WriteBits cannot be greater than the size of RansBitstreamType");
@@ -32,7 +29,7 @@ namespace Recoil {
             state = ((state / frequency) << ProbBits) + (state % frequency) + start;
         }
 
-        CUDA_HOST_DEVICE inline void encPutBypass(ValueType value, BitCountType bits) {
+        CUDA_HOST_DEVICE inline void encPutBypass(ValueType value, uint8_t bits) {
             state = (state << bits) | value;
         }
 
@@ -44,7 +41,7 @@ namespace Recoil {
         CUDA_HOST_DEVICE inline RansBitstreamType encRenormOnce() {
             const RansBitstreamType mask = (1ul << WriteBits) - 1;
 
-            Recoil::UnsignedType auto output = static_cast<RansBitstreamType>(state & mask);
+            std::unsigned_integral auto output = static_cast<RansBitstreamType>(state & mask);
             state >>= WriteBits;
             return output;
         }
@@ -54,7 +51,7 @@ namespace Recoil {
             return state & mask;
         }
 
-        CUDA_HOST_DEVICE inline ValueType decGetBypass(const BitCountType nbits) {
+        CUDA_HOST_DEVICE inline ValueType decGetBypass(const uint8_t nbits) {
             const RansStateType mask = (1ul << nbits) - 1;
             auto value = static_cast<ValueType>(state & mask);
             state >>= nbits; // FIXME: should be const function
@@ -71,10 +68,10 @@ namespace Recoil {
         CUDA_HOST_DEVICE inline void decRenormOnce(const RansBitstreamType next) { state = (state << WriteBits) | next; }
     };
 
-    template<BitCountType ProbBits, auto RenormLowerBound = 1ull << 31>
+    template<uint8_t ProbBits, auto RenormLowerBound = 1ull << 31>
     using Rans64 = Rans<uint64_t, uint32_t, ProbBits, RenormLowerBound>;
 
-    template<BitCountType ProbBits, auto RenormLowerBound = 1u << 16>
+    template<uint8_t ProbBits, auto RenormLowerBound = 1u << 16>
     using Rans32 = Rans<uint32_t, uint16_t, ProbBits, RenormLowerBound>;
 }
 

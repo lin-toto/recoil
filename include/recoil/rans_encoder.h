@@ -12,11 +12,11 @@
 #include <cassert>
 
 namespace Recoil {
-    template<UnsignedType RansStateType, UnsignedType RansBitstreamType,
-            BitCountType ProbBits, RansStateType RenormLowerBound, BitCountType WriteBits,
+    template<std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
+            uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits,
             size_t NInterleaved, bool RecordIntermediateStates = false>
     class RansEncoder {
-        template<UnsignedType T, UnsignedType, BitCountType, T, BitCountType, size_t>
+        template<std::unsigned_integral T, std::unsigned_integral, uint8_t, T, uint8_t, size_t>
         friend class RansSplitEncoder;
     protected:
         using MyRans = Rans<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;

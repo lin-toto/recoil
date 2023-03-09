@@ -11,10 +11,9 @@
 #include <chrono>
 
 namespace Recoil {
-
     namespace {
-        template<UnsignedType RansStateType, UnsignedType RansBitstreamType,
-                BitCountType ProbBits, RansStateType RenormLowerBound, BitCountType WriteBits,
+        template<std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
+                uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits,
                 size_t NInterleaved>
         struct SplitCuda {
             using MyRans = Rans<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
@@ -25,8 +24,8 @@ namespace Recoil {
             size_t minSymbolGroupId, maxSymbolGroupId;
         };
 
-        template<UnsignedType RansStateType, UnsignedType RansBitstreamType,
-                BitCountType ProbBits, RansStateType RenormLowerBound, BitCountType WriteBits,
+        template<std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
+                uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits,
                 size_t NInterleaved, size_t NSplits>
         CUDA_GLOBAL void launchCudaDecode_staticCdf(
                 uint32_t totalSymbolCount,
@@ -81,8 +80,8 @@ namespace Recoil {
      * CUDA interface class between host and device code.
      * From this point the host containers will be converted to CUDA equivalents.
      */
-    template<UnsignedType RansStateType, UnsignedType RansBitstreamType,
-            BitCountType ProbBits, RansStateType RenormLowerBound, BitCountType WriteBits,
+    template<std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
+            uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits,
             size_t NInterleaved, size_t NSplits>
     class RansSplitDecoderCuda {
         using MyRansCodedDataWithSplits = RansCodedDataWithSplits<

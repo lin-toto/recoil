@@ -3,10 +3,11 @@
 
 #include <vector>
 #include <array>
+#include <concepts>
 
 namespace Recoil {
-    template<UnsignedType RansStateType, UnsignedType RansBitstreamType,
-            BitCountType ProbBits, RansStateType RenormLowerBound, BitCountType WriteBits,
+    template<std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
+            uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits,
             size_t NInterleaved>
     struct RansCodedData {
         using MyRans = Rans<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
@@ -19,8 +20,8 @@ namespace Recoil {
         HeuristicSymbolCount, EqualBitstreamLength
     };
 
-    template<UnsignedType RansStateType, UnsignedType RansBitstreamType,
-            BitCountType ProbBits, RansStateType RenormLowerBound, BitCountType WriteBits,
+    template<std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
+            uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits,
             size_t NInterleaved, size_t NSplits>
     struct RansCodedDataWithSplits : public RansCodedData<
             RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved> {

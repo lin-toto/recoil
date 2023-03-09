@@ -4,7 +4,7 @@
 #include <string>
 #include <fstream>
 #include <vector>
-#include "recoil/type_aliases.h"
+#include "recoil/type_defs.h"
 
 namespace Recoil::Examples {
     std::string readFile(const std::string &name, std::ios_base::openmode mode = std::ios_base::in);

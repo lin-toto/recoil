@@ -1,7 +1,7 @@
 #ifndef RECOIL_CDF_H
 #define RECOIL_CDF_H
 
-#include "recoil/type_aliases.h"
+#include "recoil/type_defs.h"
 #include <span>
 #include <optional>
 #include <algorithm>

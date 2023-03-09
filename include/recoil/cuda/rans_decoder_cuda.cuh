@@ -15,8 +15,8 @@ namespace {
 }
 
 namespace Recoil {
-    template<UnsignedType RansStateType, UnsignedType RansBitstreamType,
-            BitCountType ProbBits, RansStateType RenormLowerBound, BitCountType WriteBits>
+    template<std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
+            uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits>
     class RansDecoderCuda {
         const int NInterleaved = 32; // FIXME
 
