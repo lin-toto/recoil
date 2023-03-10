@@ -23,9 +23,9 @@ namespace Recoil {
             packed = value | (start << 8) | (frequency << 20);
         }
 
-        CUDA_HOST_DEVICE [[nodiscard]] inline uint8_t getValue() const { return packed & 0xff; };
-        CUDA_HOST_DEVICE [[nodiscard]] inline uint16_t getStart() const { return (packed >> 8) & 0x0fff; };
-        CUDA_HOST_DEVICE [[nodiscard]] inline uint16_t getFrequency() const { return (packed >> 20) & 0x0fff; };
+        [[nodiscard]] CUDA_HOST_DEVICE inline uint8_t getValue() const { return packed & 0xff; };
+        [[nodiscard]] CUDA_HOST_DEVICE inline uint16_t getStart() const { return (packed >> 8) & 0x0fff; };
+        [[nodiscard]] CUDA_HOST_DEVICE inline uint16_t getFrequency() const { return (packed >> 20) & 0x0fff; };
     };
 
     template<std::unsigned_integral CdfType, std::unsigned_integral ValueType, uint8_t ProbBits, uint8_t LutGranularity>
@@ -38,9 +38,9 @@ namespace Recoil {
         LutItem(ValueType value, CdfType start, CdfType frequency) noexcept
             : value(value), start(start), frequency(frequency) {}
 
-        CUDA_HOST_DEVICE [[nodiscard]] inline ValueType getValue() const { return value; };
-        CUDA_HOST_DEVICE [[nodiscard]] inline CdfType getStart() const { return start; };
-        CUDA_HOST_DEVICE [[nodiscard]] inline CdfType getFrequency() const { return frequency; };
+        [[nodiscard]] CUDA_HOST_DEVICE inline ValueType getValue() const { return value; };
+        [[nodiscard]] CUDA_HOST_DEVICE inline CdfType getStart() const { return start; };
+        [[nodiscard]] CUDA_HOST_DEVICE inline CdfType getFrequency() const { return frequency; };
     };
 
     template<std::unsigned_integral CdfType, std::unsigned_integral ValueType, uint8_t ProbBits, uint8_t LutGranularity>
@@ -51,7 +51,7 @@ namespace Recoil {
         LutItem(ValueType value, CdfType start, CdfType frequency) noexcept
             : value(value) {}
 
-        CUDA_HOST_DEVICE [[nodiscard]] inline ValueType getValue() const { return value; };
+        [[nodiscard]] CUDA_HOST_DEVICE inline ValueType getValue() const { return value; };
     };
 
     template<std::unsigned_integral CdfType, std::unsigned_integral ValueType, uint8_t ProbBits, uint8_t LutGranularity>
