@@ -2,10 +2,10 @@
 #include "file.h"
 #include "profiling.h"
 
-#include "recoil/lib/cdf.h"
+#include "recoil/symbol_lookup/cdf_lut_pool.h"
 #include "recoil/rans_encoder.h"
 #include "recoil/rans_decoder.h"
-#include "recoil/simd/rans_decoder_avx2_32x8n.h"
+//#include "recoil/simd/rans_decoder_avx2_32x8n.h"
 
 #include <iostream>
 #include <vector>
@@ -16,7 +16,11 @@ using namespace Recoil;
 using namespace Recoil::Examples;
 
 const uint8_t ProbBits = 12;
-const size_t NInterleaved = 16;
+const uint8_t LutGranularity = 1;
+const size_t NInterleaved = 1;
+
+using CdfType = uint16_t;
+using ValueType = uint8_t;
 
 int main(int argc, const char **argv) {
     if (argc != 2) {
@@ -28,17 +32,20 @@ int main(int argc, const char **argv) {
     std::cout << "File size: " << text.length() << " bytes" << std::endl;
 
     auto cdfVec = buildCdfFromString(text, ProbBits);
-    auto lutVec = Cdf::buildLut<ProbBits>(std::span{cdfVec});
-    Cdf cdf((std::span{cdfVec}), (std::span{lutVec}));
+    auto lutVec = LutBuilder<CdfType, ValueType, ProbBits, LutGranularity>::buildLut(std::span{cdfVec});
 
-    RansEncoder enc((std::array<Rans32<ProbBits>, NInterleaved>{}));
-    auto symbols = stringToSymbols(text);
-    enc.buffer(symbols, cdf);
+    CdfLutPool<CdfType, ValueType, ProbBits, LutGranularity> pool(cdfVec.size(), lutVec.size());
+    auto cdfOffset = pool.insertCdf(cdfVec);
+    auto lutOffset = pool.insertLut(lutVec);
+
+    RansEncoder enc((std::array<Rans32<ValueType, ProbBits>, NInterleaved>{}), pool);
+    auto symbols = stringToSymbols<ValueType>(text);
+    enc.buffer(symbols, cdfOffset);
     auto result = enc.flush();
 
-    RansDecoder dec((std::span{result.bitstream}), result.finalRans);
+    RansDecoder dec((std::span{result.bitstream}), result.finalRans, pool);
     std::vector<ValueType> decoded;
-    auto time = timeIt([&]() { decoded = dec.decode(cdf, symbols.size()); });
+    auto time = timeIt([&]() { decoded = dec.decode(cdfOffset, lutOffset, symbols.size()); });
     if (std::equal(symbols.begin(), symbols.end(), decoded.begin())) {
         std::cout << "Decoding success! Time: " << time << "us" << std::endl;
     } else {
@@ -46,14 +53,14 @@ int main(int argc, const char **argv) {
     }
     std::cout << "Throughput: " << text.length() / (time / 1000000.0) / 1024 / 1024 << " MB/s" << std::endl;
 
-    RansDecoder_AVX2_32x8n decAVX2((std::span{result.bitstream}), result.finalRans);
+    /*RansDecoder_AVX2_32x8n decAVX2((std::span{result.bitstream}), result.finalRans);
     time = timeIt([&]() { decoded = decAVX2.decode(cdf, symbols.size()); });
     if (std::equal(symbols.begin(), symbols.end(), decoded.begin())) {
         std::cout << "AVX2 Decoding success! Time: " << time << "us" << std::endl;
     } else {
         std::cerr << "AVX2 Decoding failed!" << std::endl;
     }
-    std::cout << "Throughput: " << text.length() / (time / 1000000.0) / 1024 / 1024 << " MB/s" << std::endl;
+    std::cout << "Throughput: " << text.length() / (time / 1000000.0) / 1024 / 1024 << " MB/s" << std::endl;*/
 
     return 0;
 }

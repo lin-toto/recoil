@@ -2,7 +2,7 @@
 #include "file.h"
 #include "profiling.h"
 
-#include "recoil/lib/cdf.h"
+#include "recoil/symbol_lookup/cdf_lut_pool.h"
 #include "recoil/multithread/rans_split_encoder.h"
 #include "recoil/multithread/rans_split_decoder.h"
 
@@ -16,8 +16,12 @@ using namespace Recoil;
 using namespace Recoil::Examples;
 
 const uint8_t ProbBits = 12;
+const uint8_t LutGranularity = 1;
 const size_t NInterleaved = 16;
-const size_t NSplit = 56;
+const size_t NSplit = 16;
+
+using CdfType = uint16_t;
+using ValueType = uint8_t;
 
 int main(int argc, const char **argv) {
     if (argc != 2) {
@@ -29,22 +33,25 @@ int main(int argc, const char **argv) {
     std::cout << "File size: " << text.length() << " bytes" << std::endl;
 
     auto cdfVec = buildCdfFromString(text, ProbBits);
-    auto lutVec = Cdf::buildLut<ProbBits>(std::span{cdfVec});
-    Cdf cdf((std::span{cdfVec}), (std::span{lutVec}));
-    auto symbols = stringToSymbols(text);
-    RansSplitEncoder enc((std::array<Rans32<ProbBits>, NInterleaved>{}));
+    auto lutVec = LutBuilder<CdfType, ValueType, ProbBits, LutGranularity>::buildLut(std::span{cdfVec});
 
-    enc.getEncoder().buffer(symbols, cdf);
+    CdfLutPool<CdfType, ValueType, ProbBits, LutGranularity> pool(cdfVec.size(), lutVec.size());
+    auto cdfOffset = pool.insertCdf(cdfVec);
+    auto lutOffset = pool.insertLut(lutVec);
+
+    RansSplitEncoder enc((std::array<Rans32<ValueType, ProbBits>, NInterleaved>{}), pool);
+    auto symbols = stringToSymbols<ValueType>(text);
+    enc.getEncoder().buffer(symbols, cdfOffset);
     auto result = enc.flushSplits<NSplit>();
 
     std::array<std::vector<ValueType>, NSplit> decoded;
 
-    RansSplitDecoder dec(result);
+    RansSplitDecoder dec(result, pool);
 
     std::array<std::future<unsigned int>, NSplit> tasks;
     for (int i = 0; i < NSplit; i++) {
-        tasks[i] = std::async(std::launch::async, [i, &dec, &cdf, &decoded] {
-            auto time = timeIt([&]() { decoded[i] = dec.decodeSplit(i, cdf); });
+        tasks[i] = std::async(std::launch::async, [i, &dec, &decoded, cdfOffset, lutOffset] {
+            auto time = timeIt([&]() { decoded[i] = dec.decodeSplit(i, cdfOffset, lutOffset); });
             return time;
         });
     }

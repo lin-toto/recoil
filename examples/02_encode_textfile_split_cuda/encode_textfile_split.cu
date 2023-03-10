@@ -1,7 +1,7 @@
 #include "cdf_utils.h"
 #include "file.h"
 
-#include "recoil/lib/cdf.h"
+#include "recoil/symbol_lookup/cdf_lut_pool.h"
 #include "recoil/multithread/rans_split_encoder.h"
 #include "recoil/cuda/rans_split_decoder_cuda.cuh"
 
@@ -13,9 +13,13 @@
 using namespace Recoil;
 using namespace Recoil::Examples;
 
-const uint8_t ProbBits = 12;
+const uint8_t ProbBits = 16;
+const uint8_t LutGranularity = 1;
 const size_t NInterleaved = 32;
-const size_t NSplit = 200;
+const size_t NSplit = 100;
+
+using CdfType = uint16_t;
+using ValueType = uint8_t;
 
 int main(int argc, const char **argv) {
     if (argc != 2) {
@@ -27,25 +31,19 @@ int main(int argc, const char **argv) {
     std::cout << "File size: " << text.length() << " bytes" << std::endl;
 
     auto cdfVec = buildCdfFromString(text, ProbBits);
-    auto lutVec = Cdf::buildLut<ProbBits>(std::span{cdfVec});
-    std::span cdfSpan{cdfVec};
-    std::span lutSpan{lutVec};
-    Cdf cdf(cdfSpan, lutSpan);
+    auto lutVec = LutBuilder<CdfType, ValueType, ProbBits, LutGranularity>::buildLut(std::span{cdfVec});
 
-    RansSplitEncoder enc((std::array<Rans32<ProbBits>, NInterleaved>{}));
-    auto symbols = stringToSymbols(text);
-    enc.getEncoder().buffer(symbols, cdf);
-    auto result = enc.flushSplits<NSplit>(/*SplitStrategy::EqualBitstreamLength*/);
+    CdfLutPool<CdfType, ValueType, ProbBits, LutGranularity> pool(cdfVec.size(), lutVec.size());
+    auto cdfOffset = pool.insertCdf(cdfVec);
+    auto lutOffset = pool.insertLut(lutVec);
 
-    CdfType *cdfGpu;
-    ValueType *lutGpu;
-    cudaMalloc(&cdfGpu, cdfVec.size() * sizeof(CdfType));
-    cudaMalloc(&lutGpu, lutVec.size() * sizeof(ValueType));
-    cudaMemcpy(cdfGpu, cdfVec.data(), cdfVec.size() * sizeof(CdfType), cudaMemcpyHostToDevice);
-    cudaMemcpy(lutGpu, lutVec.data(), lutVec.size() * sizeof(ValueType), cudaMemcpyHostToDevice);
+    RansSplitEncoder enc((std::array<Rans32<ValueType, ProbBits>, NInterleaved>{}), pool);
+    auto symbols = stringToSymbols<ValueType>(text);
+    enc.getEncoder().buffer(symbols, cdfOffset);
+    auto result = enc.flushSplits<NSplit>();
 
-    RansSplitDecoderCuda splitDecoderCuda(result);
-    auto decoded = splitDecoderCuda.decodeAll(cdfGpu, lutGpu);
+    RansSplitDecoderCuda splitDecoderCuda(result, pool);
+    auto decoded = splitDecoderCuda.decodeAll(cdfOffset, lutOffset);
 
     if (std::equal(symbols.begin(), symbols.end(), decoded.begin())) {
         std::cout << "CUDA Decoding success!" << std::endl;

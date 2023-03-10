@@ -3,6 +3,9 @@
 #include "recoil/multithread/rans_split_encoder.h"
 #include "recoil/multithread/rans_split_decoder.h"
 
+#include "recoil/symbol_lookup/cdf_lut_pool.h"
+#include "recoil/symbol_lookup/symbol_lookup.h"
+
 #include <array>
 #include <iostream>
 

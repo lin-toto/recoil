@@ -1,7 +1,8 @@
 #ifndef RECOIL_RANS_ENCODER_H
 #define RECOIL_RANS_ENCODER_H
 
-#include "recoil/lib/cdf.h"
+#include "recoil/symbol_lookup/cdf_lut_pool.h"
+#include "recoil/symbol_lookup/symbol_lookup.h"
 #include "recoil/rans.h"
 #include "recoil/rans_coded_data.h"
 #include <vector>
@@ -12,39 +13,43 @@
 #include <cassert>
 
 namespace Recoil {
-    template<std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
-            uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits,
+    template<std::unsigned_integral CdfType, std::unsigned_integral ValueType,
+            std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
+            uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits, uint8_t LutGranularity,
             size_t NInterleaved, bool RecordIntermediateStates = false>
     class RansEncoder {
-        template<std::unsigned_integral T, std::unsigned_integral, uint8_t, T, uint8_t, size_t>
+        template<std::unsigned_integral, std::unsigned_integral, std::unsigned_integral T, std::unsigned_integral, uint8_t, T, uint8_t, uint8_t, size_t>
         friend class RansSplitEncoder;
     protected:
-        using MyRans = Rans<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
+        using MyRans = Rans<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
+        using MyCdfLutPool = CdfLutPool<CdfType, ValueType, ProbBits, LutGranularity>;
+        using MySymbolLookup = SymbolLookup<CdfType, ValueType, ProbBits, LutGranularity>;
         using MyRansCodedData = RansCodedData<
-                RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved>;
+                CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved>;
     public:
-        explicit RansEncoder(std::array<MyRans, NInterleaved> rans) : rans(std::move(rans)) {}
+        RansEncoder(std::array<MyRans, NInterleaved> rans, const MyCdfLutPool& pool)
+            : rans(std::move(rans)), symbolLookup(pool) {}
 
         /*
          * Buffer the values for encode with single shared CDF.
          */
-        void buffer(const std::span<ValueType> values, const Cdf cdf) {
+        void buffer(const std::span<ValueType> values, const CdfLutOffsetType cdfOffset) {
             symbolBuffer.reserve(symbolBuffer.size() + values.size());
 
             for (const auto &value: values) {
-                bufferSymbol(value, cdf);
+                bufferSymbol(value, cdfOffset);
             }
         }
 
         /*
          * Buffer the values for encode with independent CDF for each symbol.
          */
-        void buffer(const std::span<ValueType> values, const std::span<Cdf> cdfs) {
-            assert(values.size() == cdfs.size());
+        void buffer(const std::span<ValueType> values, const std::span<CdfLutOffsetType> cdfOffsets) {
+            assert(values.size() == cdfOffsets.size());
             symbolBuffer.reserve(symbolBuffer.size() + values.size());
 
             for (auto i = 0; i < values.size(); i++) {
-                bufferSymbol(values[i], cdfs[i]);
+                bufferSymbol(values[i], cdfOffsets[i]);
             }
         }
 
@@ -90,24 +95,21 @@ namespace Recoil {
         };
 
         std::array<MyRans, NInterleaved> rans;
+        MySymbolLookup symbolLookup;
         std::vector<RansBitstreamType> bitstream;
         std::vector<Symbol> symbolBuffer;
         std::vector<EncoderIntermediateState> intermediateStates;
         size_t symbolCounter = 0;
 
-        inline void bufferSymbol(const ValueType value, const Cdf cdf) {
-            auto startAndFrequency = cdf.getStartAndFrequency(value);
-            if (startAndFrequency.has_value()) {
-                auto [start, frequency] = startAndFrequency.value();
-                symbolBuffer.push_back({symbolCounter, Symbol::Encoded, typename Symbol::EncodedSymbol({start, frequency})});
-            } else {
-                // TODO: handle when value < 0
+        inline void bufferSymbol(const ValueType value, const CdfLutOffsetType cdfId) {
+            auto [_, start, frequency] = symbolLookup.getSymbolInfo(cdfId, value);
 
-                uint8_t bits = sizeof(ValueType) * 8 - std::countl_zero(static_cast<unsigned int>(value));
-                symbolBuffer.push_back({symbolCounter, Symbol::Bypass, typename Symbol::BypassSymbol({value, bits})});
-            }
-
+            symbolBuffer.push_back({symbolCounter, Symbol::Encoded, typename Symbol::EncodedSymbol({start, frequency})});
             symbolCounter++;
+
+            /* TODO: support bypass coding
+            uint8_t bits = sizeof(ValueType) * 8 - std::countl_zero(static_cast<unsigned int>(value));
+            symbolBuffer.push_back({symbolCounter, Symbol::Bypass, typename Symbol::BypassSymbol({value, bits})}); */
         }
 
         /*

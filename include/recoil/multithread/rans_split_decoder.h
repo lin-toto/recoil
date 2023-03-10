@@ -4,30 +4,32 @@
 #include "recoil/rans.h"
 #include "recoil/rans_coded_data.h"
 #include "recoil/rans_decoder.h"
-#include "recoil/simd/rans_decoder_avx2_32x8n.h"
-#include "recoil/lib/cdf.h"
+//#include "recoil/simd/rans_decoder_avx2_32x8n.h"
 #include <span>
 
 namespace Recoil {
-    template<std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
-            uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits,
+    template<std::unsigned_integral CdfType, std::unsigned_integral ValueType,
+            std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
+            uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits, uint8_t LutGranularity,
             size_t NInterleaved, size_t NSplits>
     class RansSplitDecoder {
-        // TODO: allow any class derived from RansDecoder, from a template parameter
     protected:
+        using MyCdfLutPool = CdfLutPool<CdfType, ValueType, ProbBits, LutGranularity>;
         using MyRansCodedDataWithSplits = RansCodedDataWithSplits<
-                RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved, NSplits>;
-        //using MyRansDecoder = RansDecoder<
-                //RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved>;
-        using MyRansDecoder = RansDecoder_AVX2_32x8n<ProbBits, RenormLowerBound, NInterleaved>;
-    public:
-        explicit RansSplitDecoder(MyRansCodedDataWithSplits data) : data(std::move(data)) {}
+                CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved, NSplits>;
 
-        std::vector<ValueType> decodeSplit(const size_t splitId, const Cdf cdf) {
+        // TODO: allow any class derived from RansDecoder, from a template parameter
+        using MyRansDecoder = RansDecoder<
+                CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, LutGranularity, NInterleaved>;
+        //using MyRansDecoder = RansDecoder_AVX2_32x8n<ProbBits, RenormLowerBound, NInterleaved>;
+    public:
+        explicit RansSplitDecoder(MyRansCodedDataWithSplits data, const MyCdfLutPool& pool) : data(std::move(data)), pool(pool) {}
+
+        std::vector<ValueType> decodeSplit(const size_t splitId, const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset) {
             auto& currentSplit = data.splits[splitId];
             MyRansDecoder decoder(
                     std::span(data.bitstream.data(), currentSplit.cutPosition + 1),
-                    currentSplit.intermediateRans);
+                    currentSplit.intermediateRans, pool);
 
             if (splitId != 0) {
                 // synchronize decoders
@@ -42,7 +44,7 @@ namespace Recoil {
                                 decoder.renorm(decoder.rans[decoderId]);
                                 ransInitialized[decoderId] = true;
                             } else ransAllInitialized = false;
-                        } else decoder.decodeSymbol(decoder.rans[decoderId], cdf);
+                        } else decoder.decodeSymbol(decoder.rans[decoderId], cdfOffset, lutOffset);
                     }
                 }
             }
@@ -50,14 +52,15 @@ namespace Recoil {
             size_t decodeStartSymbolId = splitId == 0 ? 0 : NInterleaved * (currentSplit.maxSymbolGroupId() + 1);
             size_t decodeEndSymbolId = splitId == NSplits - 1 ? data.symbolCount
                     : NInterleaved * (1 + data.splits[splitId + 1].maxSymbolGroupId());
-            return decoder.decode(cdf, decodeEndSymbolId - decodeStartSymbolId);
+            return decoder.decode(cdfOffset, lutOffset, decodeEndSymbolId - decodeStartSymbolId);
         }
 
-        std::vector<ValueType> decodeSplit(size_t splitId, const std::span<Cdf> fullCdf) {
+        std::vector<ValueType> decodeSplit(size_t splitId, const std::span<CdfLutOffsetType> allCdfOffsets, const std::span<CdfLutOffsetType> allLutOffsets) {
             // TODO
         }
     protected:
         MyRansCodedDataWithSplits data;
+        const MyCdfLutPool &pool;
     };
 }
 

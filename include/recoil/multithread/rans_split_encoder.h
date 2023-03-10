@@ -16,20 +16,22 @@ namespace {
 }
 
 namespace Recoil {
-    template<std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
-            uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits,
+    template<std::unsigned_integral CdfType, std::unsigned_integral ValueType,
+            std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
+            uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits, uint8_t LutGranularity,
             size_t NInterleaved>
     class RansSplitEncoder {
-        using MyRans = Rans<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
-        // TODO: allow any class derived from RansEncoder, from a template parameter
+        using MyRans = Rans<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
+        using MyCdfLutPool = CdfLutPool<CdfType, ValueType, ProbBits, LutGranularity>;
+        // TODO: allow any class derived from RansEncoder, from a template parameter (we may have an AVX encoder in the future)
         using MyRansEncoder = RansEncoder<
-                RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved, true>;
+                CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, LutGranularity, NInterleaved, true>;
         template<size_t NSplits>
         using MyRansCodedDataWithSplits = RansCodedDataWithSplits<
-                RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved, NSplits>;
+                CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved, NSplits>;
     public:
         explicit RansSplitEncoder(
-                std::array<MyRans, NInterleaved> rans): encoder(std::move(rans)) {}
+                std::array<MyRans, NInterleaved> rans,  const MyCdfLutPool& pool): encoder(std::move(rans), pool) {}
 
         inline MyRansEncoder& getEncoder() { return encoder; }
 

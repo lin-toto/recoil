@@ -12,11 +12,12 @@
 
 namespace Recoil {
     namespace {
-        template<std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
-                uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits,
+        template<std::unsigned_integral CdfType, std::unsigned_integral ValueType,
+                std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
+                uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits, uint8_t LutGranularity,
                 size_t NInterleaved>
         struct SplitCuda {
-            using MyRans = Rans<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
+            using MyRans = Rans<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
 
             size_t cutPosition; // TODO: need to verify this is actually safe!
             cuda::std::array<MyRans, NInterleaved> intermediateRans;
@@ -24,16 +25,18 @@ namespace Recoil {
             size_t minSymbolGroupId, maxSymbolGroupId;
         };
 
-        template<std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
-                uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits,
+        template<std::unsigned_integral CdfType, std::unsigned_integral ValueType,
+                std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
+                uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits, uint8_t LutGranularity,
                 size_t NInterleaved, size_t NSplits>
         CUDA_GLOBAL void launchCudaDecode_staticCdf(
                 uint32_t totalSymbolCount,
+                CdfLutPool<CdfType, ValueType, ProbBits, LutGranularity> pool,
                 CUDA_DEVICE_PTR const RansBitstreamType *bitstream,
                 CUDA_DEVICE_PTR ValueType *outputBuffer,
-                CUDA_DEVICE_PTR SplitCuda<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved> *splits,
-                CUDA_DEVICE_PTR CdfType *cdf,
-                CUDA_DEVICE_PTR ValueType *lut
+                CUDA_DEVICE_PTR SplitCuda<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, LutGranularity, NInterleaved> *splits,
+                const CdfLutOffsetType cdfOffset,
+                const CdfLutOffsetType lutOffset
         ) {
             const unsigned int splitId = blockIdx.x, decoderId = threadIdx.x;
             const auto& currentSplit = splits[splitId];
@@ -44,7 +47,7 @@ namespace Recoil {
 
             RansDecoderCuda decoder(
                     bitstream, currentSplit.cutPosition,
-                    outputBuffer, decodeStartSymbolId,
+                    outputBuffer, decodeStartSymbolId, pool,
                     currentSplit.intermediateRans[decoderId]);
 
             if (splitId != 0) {
@@ -66,13 +69,13 @@ namespace Recoil {
                         }
                     } else {
                         // Perform normal decoding but do not record result.
-                        decoder.decodeOnce_noRenorm(cdf, lut);
+                        decoder.decodeOnce_noRenorm(cdfOffset, lutOffset);
                         ransInitFlag |= decoder.renorm();
                     }
                 }
             }
 
-            decoder.decode(cdf, lut, decodeEndSymbolId - decodeStartSymbolId);
+            decoder.decode(cdfOffset, lutOffset, decodeEndSymbolId - decodeStartSymbolId);
         }
     }
 
@@ -80,17 +83,18 @@ namespace Recoil {
      * CUDA interface class between host and device code.
      * From this point the host containers will be converted to CUDA equivalents.
      */
-    template<std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
-            uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits,
+    template<std::unsigned_integral CdfType, std::unsigned_integral ValueType,
+            std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
+            uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits, uint8_t LutGranularity,
             size_t NInterleaved, size_t NSplits>
     class RansSplitDecoderCuda {
         using MyRansCodedDataWithSplits = RansCodedDataWithSplits<
-                RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved, NSplits>;
+                CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved, NSplits>;
+        using MyCdfLutPool = CdfLutPool<CdfType, ValueType, ProbBits, LutGranularity>;
     public:
-        explicit RansSplitDecoderCuda(MyRansCodedDataWithSplits data) : data(std::move(data)) {}
+        explicit RansSplitDecoderCuda(MyRansCodedDataWithSplits data, const MyCdfLutPool &pool) : data(std::move(data)), pool(pool) {}
 
-        // TODO: proper CDF store
-        std::vector<ValueType> decodeAll(CUDA_DEVICE_PTR CdfType *cdf, CUDA_DEVICE_PTR ValueType *lut) {
+        std::vector<ValueType> decodeAll(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset) {
             CUDA_DEVICE_PTR RansBitstreamType *bitstream;
             cudaMalloc(&bitstream, sizeof(RansBitstreamType) * data.bitstream.size());
             cudaMemcpy(bitstream, data.bitstream.data(), sizeof(RansBitstreamType) * data.bitstream.size(), cudaMemcpyHostToDevice);
@@ -98,7 +102,7 @@ namespace Recoil {
             CUDA_DEVICE_PTR ValueType *outputBuffer;
             cudaMalloc(&outputBuffer, sizeof(ValueType) * data.symbolCount);
 
-            std::array<SplitCuda<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved>, NSplits> splits;
+            std::array<SplitCuda<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, LutGranularity, NInterleaved>, NSplits> splits;
             for (int i = 0; i < NSplits; i++) {
                 splits[i].cutPosition = data.splits[i].cutPosition;
                 std::copy(data.splits[i].intermediateRans.begin(), data.splits[i].intermediateRans.end(), splits[i].intermediateRans.begin());
@@ -106,15 +110,26 @@ namespace Recoil {
                 splits[i].minSymbolGroupId = data.splits[i].minSymbolGroupId();
                 splits[i].maxSymbolGroupId = data.splits[i].maxSymbolGroupId();
             }
-            CUDA_DEVICE_PTR SplitCuda<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved> *splitsCuda;
+            CUDA_DEVICE_PTR decltype(&splits[0]) splitsCuda;
             cudaMalloc(&splitsCuda, sizeof(splits[0]) * NSplits);
             cudaMemcpy(splitsCuda, &splits[0], sizeof(splits[0]) * NSplits, cudaMemcpyHostToDevice);
 
+            CUDA_DEVICE_PTR uint8_t *poolBuf;
+            cudaMalloc(&poolBuf, pool.poolSize());
+            fflush(stdout);
+            cudaMemcpy(poolBuf, pool.getPool(), pool.poolSize(), cudaMemcpyHostToDevice);
+            MyCdfLutPool poolGpu(
+                    reinterpret_cast<const CdfType*>(reinterpret_cast<const uint8_t*>(pool.getCdfPool()) - pool.getPool() + poolBuf),
+                    pool.getCdfSize(),
+                    reinterpret_cast<const MyCdfLutPool::MyLutItem *>(reinterpret_cast<const uint8_t*>(pool.getLutPool()) - pool.getPool() + poolBuf),
+                    pool.getLutSize()
+            );
+
             auto start = std::chrono::high_resolution_clock::now();
 
-            launchCudaDecode_staticCdf<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved, NSplits>
+            launchCudaDecode_staticCdf<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, LutGranularity, NInterleaved, NSplits>
                     <<<NSplits, NInterleaved>>>(
-                    data.symbolCount, bitstream, outputBuffer, splitsCuda, cdf, lut);
+                    data.symbolCount, std::move(poolGpu), bitstream, outputBuffer, splitsCuda, cdfOffset, lutOffset);
             cudaDeviceSynchronize();
 
             auto end = std::chrono::high_resolution_clock::now();
@@ -133,6 +148,7 @@ namespace Recoil {
 
     protected:
         MyRansCodedDataWithSplits data;
+        const MyCdfLutPool &pool;
     };
 }
 

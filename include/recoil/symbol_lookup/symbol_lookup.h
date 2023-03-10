@@ -2,7 +2,9 @@
 #define RECOIL_SYMBOL_LOOKUP_H
 
 #include "recoil/cuda/macros.h"
-#include "cdf_lut_pool.h"
+#include "recoil/symbol_lookup/lookup_mode.h"
+#include "recoil/symbol_lookup/lut.h"
+#include "recoil/symbol_lookup/cdf_lut_pool.h"
 
 #include <concepts>
 #include <cstdint>
@@ -13,8 +15,10 @@ namespace Recoil {
             uint8_t ProbBits, uint8_t LutGranularity>
     class SymbolLookup {
         using MyCdfLutPool = CdfLutPool<CdfType, ValueType, ProbBits, LutGranularity>;
+        using MyLutItem = LutItem<CdfType, ValueType, ProbBits, LutGranularity>;
     public:
-        struct StartAndFrequency {
+        struct SymbolInfo {
+            ValueType value;
             CdfType start, frequency;
         };
 
@@ -22,42 +26,41 @@ namespace Recoil {
          * It is the caller's responsibility to ensure that the pool is not destructed when this class is used.
          * For performance reasons this will not be checked & the two pool pointers will be simply copied here.
          */
-        explicit SymbolLookup(const MyCdfLutPool& pool) : cdfPool(pool.getCdfPool()), lutPool(pool.getLutPool()) {}
+        explicit CUDA_HOST_DEVICE SymbolLookup(const MyCdfLutPool& pool) : cdfPool(pool.getCdfPool()), lutPool(pool.getLutPool()) {}
 
-        enum LookupMode { CdfOnly, LutOnly, Mixed };
-        inline constexpr LookupMode lookupMode() const {
-            if constexpr (LutGranularity == 1) return LutOnly;
-            if constexpr (LutGranularity > 1) return Mixed;
-            return CdfOnly; // LutGranularity == 0
-        }
-
-        [[nodiscard]] CUDA_HOST_DEVICE inline ValueType findValue(
+        [[nodiscard]] CUDA_HOST_DEVICE inline SymbolInfo getSymbolInfo(
                 CdfLutOffsetType cdfOffset, CdfLutOffsetType lutOffset, CdfType probability) const {
+            if constexpr (LutOnlyGranularity<LutGranularity>) {
+                auto lutItem = getLut(lutOffset)[probability];
+                return SymbolInfo{ lutItem.getValue(), lutItem.getStart(), lutItem.getFrequency() };
+            }
+
             auto startOffset = 0;
-            if constexpr (lookupMode() != CdfOnly)
-                startOffset = getLut(lutOffset)[probability >> (LutGranularity - 1)];
-            if constexpr (lookupMode() == LutOnly)
-                return startOffset;
+            if constexpr (MixedGranularity<LutGranularity>) {
+                startOffset = getLut(lutOffset)[probability >> (LutGranularity - 1)].getValue();
+            }
 
             auto cdf = getCdf(cdfOffset);
-            for (auto *it = cdf + startOffset; *it != 0; it++) {
-                if (*it > probability) return it - cdf - 1;
+            for (auto *it = cdf + startOffset + 1; *it != 0; it++) {
+                if (*it > probability) {
+                    return SymbolInfo{ static_cast<ValueType>(it - 1 - cdf) , *(it - 1), static_cast<CdfType>(*it - *(it - 1)) };
+                }
             }
 
             // TODO: handle the case when the value is not found; used for bypass coding
         }
 
-        [[nodiscard]] CUDA_HOST_DEVICE inline StartAndFrequency getStartAndFrequency(
-                CdfLutOffsetType cdfOffset, ValueType symbol) const {
+        [[nodiscard]] inline SymbolInfo getSymbolInfo(CdfLutOffsetType cdfOffset, ValueType symbol) const {
             auto cdf = getCdf(cdfOffset);
-            return { cdf[symbol], cdf[symbol + 1] - cdf[symbol] };
+            return { symbol, cdf[symbol], static_cast<CdfType>(cdf[symbol + 1] - cdf[symbol]) };
         }
-    protected:
-        CdfType *cdfPool;
-        ValueType *lutPool;
 
-        [[nodiscard]] inline CdfType *getCdf(CdfLutOffsetType cdfOffset) const { return cdfPool + cdfOffset; }
-        [[nodiscard]] inline ValueType *getLut(CdfLutOffsetType lutOffset) const { return lutPool + lutOffset; }
+    protected:
+        const CdfType * __restrict__ cdfPool;
+        const MyLutItem * __restrict__ lutPool;
+
+        [[nodiscard]] CUDA_HOST_DEVICE inline const CdfType * __restrict__ getCdf(CdfLutOffsetType cdfOffset) const { return cdfPool + cdfOffset; }
+        [[nodiscard]] CUDA_HOST_DEVICE inline const MyLutItem * __restrict__ getLut(CdfLutOffsetType lutOffset) const { return lutPool + lutOffset; }
     };
 }
 

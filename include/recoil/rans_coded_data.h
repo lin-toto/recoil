@@ -6,11 +6,12 @@
 #include <concepts>
 
 namespace Recoil {
-    template<std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
+    template<std::unsigned_integral CdfType, std::unsigned_integral ValueType,
+            std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
             uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits,
             size_t NInterleaved>
     struct RansCodedData {
-        using MyRans = Rans<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
+        using MyRans = Rans<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
         size_t symbolCount;
         std::vector<RansBitstreamType> bitstream;
         std::array<MyRans, NInterleaved> finalRans;
@@ -20,12 +21,13 @@ namespace Recoil {
         HeuristicSymbolCount, EqualBitstreamLength
     };
 
-    template<std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
+    template<std::unsigned_integral CdfType, std::unsigned_integral ValueType,
+            std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
             uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits,
             size_t NInterleaved, size_t NSplits>
     struct RansCodedDataWithSplits : public RansCodedData<
-            RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved> {
-        using MyRans = Rans<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
+            CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved> {
+        using MyRans = Rans<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
 
         SplitStrategy splitStrategy;
 
@@ -34,8 +36,8 @@ namespace Recoil {
             std::array<MyRans, NInterleaved> intermediateRans;
             std::array<size_t, NInterleaved> startSymbolGroupIds;
 
-            inline size_t minSymbolGroupId() const { return *std::min_element(startSymbolGroupIds.begin(), startSymbolGroupIds.end()); }
-            inline size_t maxSymbolGroupId() const { return *std::max_element(startSymbolGroupIds.begin(), startSymbolGroupIds.end()); }
+            [[nodiscard]] inline size_t minSymbolGroupId() const { return *std::min_element(startSymbolGroupIds.begin(), startSymbolGroupIds.end()); }
+            [[nodiscard]] inline size_t maxSymbolGroupId() const { return *std::max_element(startSymbolGroupIds.begin(), startSymbolGroupIds.end()); }
         };
 
         /*

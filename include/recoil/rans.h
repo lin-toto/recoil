@@ -2,13 +2,13 @@
 #define RECOIL_RANS_H
 
 #include "recoil/type_defs.h"
-#include "recoil/lib/cdf.h"
 #include "recoil/cuda/macros.h"
 #include <optional>
 #include <concepts>
 
 namespace Recoil {
-    template<std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
+    template<std::unsigned_integral CdfType, std::unsigned_integral ValueType,
+            std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
             uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits = 8 * sizeof(RansBitstreamType)>
     class Rans {
         static_assert(WriteBits <= sizeof(RansBitstreamType) * 8,
@@ -68,11 +68,11 @@ namespace Recoil {
         CUDA_HOST_DEVICE inline void decRenormOnce(const RansBitstreamType next) { state = (state << WriteBits) | next; }
     };
 
-    template<uint8_t ProbBits, auto RenormLowerBound = 1ull << 31>
-    using Rans64 = Rans<uint64_t, uint32_t, ProbBits, RenormLowerBound>;
+    template<std::unsigned_integral ValueType, uint8_t ProbBits, auto RenormLowerBound = 1ull << 31>
+    using Rans64 = Rans<uint16_t, ValueType, uint64_t, uint32_t, ProbBits, RenormLowerBound>;
 
-    template<uint8_t ProbBits, auto RenormLowerBound = 1u << 16>
-    using Rans32 = Rans<uint32_t, uint16_t, ProbBits, RenormLowerBound>;
+    template<std::unsigned_integral ValueType, uint8_t ProbBits, auto RenormLowerBound = 1u << 16>
+    using Rans32 = Rans<uint16_t, ValueType, uint32_t, uint16_t, ProbBits, RenormLowerBound>;
 }
 
 #endif //RECOIL_RANS_H

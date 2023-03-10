@@ -13,14 +13,4 @@ namespace Recoil::Examples {
 
         return str;
     }
-
-    std::vector<ValueType> stringToSymbols(const std::string &str) {
-        std::vector<ValueType> symbols;
-        symbols.resize(str.length());
-        std::transform(str.begin(), str.end(), symbols.begin(), [] (char v) {
-            return static_cast<unsigned char>(v);
-        });
-
-        return symbols;
-    }
 }

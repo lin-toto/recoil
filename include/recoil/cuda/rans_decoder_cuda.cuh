@@ -15,58 +15,52 @@ namespace {
 }
 
 namespace Recoil {
-    template<std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
-            uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits>
+    template<std::unsigned_integral CdfType, std::unsigned_integral ValueType,
+            std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
+            uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits, uint8_t LutGranularity>
     class RansDecoderCuda {
         const int NInterleaved = 32; // FIXME
 
-        using MyRans = Rans<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
+        using MyRans = Rans<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
+        using MyCdfLutPool = CdfLutPool<CdfType, ValueType, ProbBits, LutGranularity>;
+        using MySymbolLookup = SymbolLookup<CdfType, ValueType, ProbBits, LutGranularity>;
     public:
         CUDA_DEVICE RansDecoderCuda(
                 CUDA_DEVICE_PTR const RansBitstreamType *bitstream, uint32_t bitstreamOffset,
                 CUDA_DEVICE_PTR ValueType *output, uint32_t outputOffset,
-                MyRans rans) : bitstreamPtr(bitstream + bitstreamOffset), outputPtr(output + outputOffset), decoder(rans) {}
+                const MyCdfLutPool &pool, // Must be a pool referencing GPU memory!
+                MyRans rans)
+                : bitstreamPtr(bitstream + bitstreamOffset), outputPtr(output + outputOffset),
+                symbolLookup(pool), decoder(rans) {}
 
-        CUDA_DEVICE void decode(
-                CUDA_DEVICE_PTR const CdfType * __restrict__ cdf,
-                CUDA_DEVICE_PTR const ValueType * __restrict__ lut,
-                const uint32_t count) {
+        CUDA_DEVICE void decode(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset, const uint32_t count) {
             const unsigned int decoderId = threadIdx.x;
 
             for (uint32_t i = 0; i + NInterleaved <= count; i += NInterleaved) {
-                outputPtr[decoderId] = decodeOnce(cdf, lut);
+                outputPtr[decoderId] = decodeOnce(cdfOffset, lutOffset);
                 outputPtr += NInterleaved;
             }
 
             if (decoderId < count % NInterleaved) {
-                outputPtr[decoderId] = decodeOnce(cdf, lut);
+                outputPtr[decoderId] = decodeOnce(cdfOffset, lutOffset);
                 outputPtr += count % NInterleaved;
             }
         }
 
     //protected:
-        CUDA_DEVICE inline ValueType decodeOnce(
-                CUDA_DEVICE_PTR const CdfType * __restrict__ cdf,
-                CUDA_DEVICE_PTR const ValueType * __restrict__ lut) {
-            auto symbol = decodeOnce_noRenorm(cdf, lut);
-
+        CUDA_DEVICE inline ValueType decodeOnce(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset) {
+            auto value = decodeOnce_noRenorm(cdfOffset, lutOffset);
             renorm();
 
-            return symbol;
+            return value;
         }
 
-        CUDA_DEVICE inline ValueType decodeOnce_noRenorm(
-                CUDA_DEVICE_PTR const CdfType * __restrict__ cdf,
-                CUDA_DEVICE_PTR const ValueType * __restrict__ lut) {
+        CUDA_DEVICE inline ValueType decodeOnce_noRenorm(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset) {
             auto probability = decoder.decGetProbability();
-            auto symbol = lut[probability];
-
-            // TODO: add LUT + CDF mixed support
-            auto start = cdf[symbol];
-            auto frequency = cdf[symbol + 1] - cdf[symbol];
+            auto [value, start, frequency] = symbolLookup.getSymbolInfo(cdfOffset, lutOffset, probability);
             decoder.decAdvanceSymbol(start, frequency);
 
-            return symbol;
+            return value;
         }
 
         /*
@@ -89,6 +83,7 @@ namespace Recoil {
         }
 
         MyRans decoder;
+        MySymbolLookup symbolLookup;
         CUDA_DEVICE_PTR const RansBitstreamType * __restrict__ bitstreamPtr;
         CUDA_DEVICE_PTR ValueType * __restrict__ outputPtr;
     };
