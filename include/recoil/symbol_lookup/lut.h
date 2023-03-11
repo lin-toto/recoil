@@ -30,7 +30,7 @@ namespace Recoil {
 
     template<std::unsigned_integral CdfType, std::unsigned_integral ValueType, uint8_t ProbBits, uint8_t LutGranularity>
     requires LutOnlyGranularity<LutGranularity>
-    struct LutItem<CdfType, ValueType, ProbBits, LutGranularity> {
+    struct alignas(sizeof(uint64_t)) LutItem<CdfType, ValueType, ProbBits, LutGranularity> {
         // Generic packed LUT implementation, so that only one memory lookup is necessary.
         // AVX2 implementation requires CdfType -> uint16_t, and they come first, so that padding is easier to handle.
 
@@ -43,7 +43,7 @@ namespace Recoil {
         [[nodiscard]] CUDA_HOST_DEVICE inline ValueType getValue() const { return value; };
         [[nodiscard]] CUDA_HOST_DEVICE inline CdfType getStart() const { return start; };
         [[nodiscard]] CUDA_HOST_DEVICE inline CdfType getFrequency() const { return frequency; };
-    } __attribute__((aligned(sizeof(uint64_t)))); // Required to align to 64 bits for AVX2 implementation
+    }; // Required to align to 64 bits for AVX2 implementation
 
     template<std::unsigned_integral CdfType, std::unsigned_integral ValueType, uint8_t ProbBits, uint8_t LutGranularity>
     requires MixedGranularity<LutGranularity>
