@@ -17,8 +17,8 @@ using namespace Recoil::Examples;
 
 const uint8_t ProbBits = 12;
 const uint8_t LutGranularity = 1;
-const size_t NInterleaved = 16;
-const size_t NSplit = 16;
+const size_t NInterleaved = 32;
+const size_t NSplit = 32;
 
 using CdfType = uint16_t;
 using ValueType = uint8_t;
