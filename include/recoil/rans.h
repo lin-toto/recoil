@@ -1,7 +1,6 @@
 #ifndef RECOIL_RANS_H
 #define RECOIL_RANS_H
 
-#include "recoil/type_defs.h"
 #include "recoil/cuda/macros.h"
 #include <optional>
 #include <concepts>
