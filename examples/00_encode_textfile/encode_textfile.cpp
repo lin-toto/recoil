@@ -5,7 +5,9 @@
 #include "recoil/symbol_lookup/cdf_lut_pool.h"
 #include "recoil/rans_encoder.h"
 #include "recoil/rans_decoder.h"
-//#include "recoil/simd/rans_decoder_avx2_32x8n.h"
+#include "recoil/simd/rans_decoder_avx2_32x8n.h"
+#include "recoil/simd/rans_decoder_avx2_32x16.h"
+#include "recoil/simd/rans_decoder_avx2_32x32.h"
 
 #include <iostream>
 #include <vector>
@@ -17,7 +19,7 @@ using namespace Recoil::Examples;
 
 const uint8_t ProbBits = 12;
 const uint8_t LutGranularity = 1;
-const size_t NInterleaved = 1;
+const size_t NInterleaved = 32;
 
 using CdfType = uint16_t;
 using ValueType = uint8_t;
@@ -53,14 +55,14 @@ int main(int argc, const char **argv) {
     }
     std::cout << "Throughput: " << text.length() / (time / 1000000.0) / 1024 / 1024 << " MB/s" << std::endl;
 
-    /*RansDecoder_AVX2_32x8n decAVX2((std::span{result.bitstream}), result.finalRans);
-    time = timeIt([&]() { decoded = decAVX2.decode(cdf, symbols.size()); });
+    RansDecoder_AVX2_32x32 decAVX2((std::span{result.bitstream}), result.finalRans, pool);
+    time = timeIt([&]() { decoded = decAVX2.decode(cdfOffset, lutOffset, symbols.size()); });
     if (std::equal(symbols.begin(), symbols.end(), decoded.begin())) {
         std::cout << "AVX2 Decoding success! Time: " << time << "us" << std::endl;
     } else {
         std::cerr << "AVX2 Decoding failed!" << std::endl;
     }
-    std::cout << "Throughput: " << text.length() / (time / 1000000.0) / 1024 / 1024 << " MB/s" << std::endl;*/
+    std::cout << "Throughput: " << text.length() / (time / 1000000.0) / 1024 / 1024 << " MB/s" << std::endl;
 
     return 0;
 }
