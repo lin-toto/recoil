@@ -2,26 +2,23 @@
 #define RECOIL_RANS_DECODER_AVX_BASE_H
 
 #include "recoil/rans_decoder.h"
+#include "recoil/lib/simd/avx_datatypes.h"
 #include <x86intrin.h>
 #include <array>
 #include <tuple>
 
 namespace Recoil {
-    namespace {
-        template <typename T>
-        concept SimdDataTypeWrapperConcept = requires(T) {
-            { typename T::SimdDataType{} };
-        };
-    }
-
-    template<std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
-            uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits,
-            size_t NInterleaved, SimdDataTypeWrapperConcept SimdDataTypeWrapper>
+    template<std::unsigned_integral CdfType, std::unsigned_integral ValueType,
+            std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
+            uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits, uint8_t LutGranularity,
+            size_t NInterleaved, SimdDataTypeWrapperConcept SimdDataTypeWrapper, typename SymbolLookupAVX>
     class RansDecoder_AVXBase : public RansDecoder<
-            RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved> {
+            CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, LutGranularity, NInterleaved> {
     protected:
-        using MyRansDecoder = RansDecoder<RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved>;
+        using MyRansDecoder = RansDecoder<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, LutGranularity, NInterleaved>;
         using SimdDataType = typename SimdDataTypeWrapper::SimdDataType;
+        using MyRans = typename MyRansDecoder::MyRans;
+        using MyCdfLutPool = typename MyRansDecoder::MyCdfLutPool;
 
         static constexpr size_t RansBatchSize = sizeof(SimdDataType) / sizeof(RansStateType);
         static constexpr size_t RansStepCount = NInterleaved / RansBatchSize;
@@ -31,18 +28,15 @@ namespace Recoil {
         static_assert(NInterleaved % RansBatchSize == 0, "AVX decoder must work on RansPerBatchxN streams");
         static_assert(MyRansDecoder::MyRans::oneShotRenorm, "Only one shot renorm decoders are supported by AVX decoder");
     public:
-        using MyRansDecoder::MyRansDecoder;
+        RansDecoder_AVXBase(const std::span<RansBitstreamType> bitstream, std::array<MyRans, NInterleaved> rans, const MyCdfLutPool& pool)
+            : symbolLookupAvx(pool), MyRansDecoder(bitstream, std::move(rans), pool) {}
 
-        std::vector<ValueType> decode(const Cdf cdf) {
-            std::vector<ValueType> result;
-            // TODO
-
-            return result;
+        std::vector<ValueType> decode(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset) {
+            throw std::runtime_error("Not implemented for AVX");
         }
 
-        std::vector<ValueType> decode(const Cdf cdf, const size_t count) {
+        std::vector<ValueType> decode(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset, const size_t count) {
             // TODO: support LUT/CDF mixed lookup
-            //static_assert(Cdf::LutGranularity == 1, "Only support LUT lookup");
 
             std::vector<ValueType> result;
             result.reserve(count);
@@ -52,7 +46,7 @@ namespace Recoil {
                 // Step 1: decode initial unaligned parts so that ransIt is now at beginning
                 auto unalignedCount = std::min(static_cast<size_t>(this->rans.end() - this->ransIt), count);
                 if (unalignedCount != NInterleaved) { // If equal to NInterleaved, it is at beginning; no action needed
-                    auto initialUnalignedResult = MyRansDecoder::decode(cdf, unalignedCount);
+                    auto initialUnalignedResult = MyRansDecoder::decode(cdfOffset, lutOffset, unalignedCount);
                     completedCount += unalignedCount;
                     result.insert(result.end(), initialUnalignedResult.begin(), initialUnalignedResult.end());
                 }
@@ -64,21 +58,22 @@ namespace Recoil {
                 SimdDataType ransSimds[RansStepCount];
                 createRansSimds(ransSimds);
 
+                const SimdDataType cdfOffsets = SimdDataTypeWrapper::setAll(cdfOffset);
+                const SimdDataType lutOffsets = SimdDataTypeWrapper::setAll(lutOffset);
+
                 for (; completedCount + NInterleaved <= count; completedCount += NInterleaved) {
                     for (auto b = 0; b < RansStepCount; b++) {
                         auto& ransSimd = ransSimds[b];
                         auto probabilitiesSimd = getProbabilities(ransSimd);
 
-                        auto [symbolsSimd, startsSimd, frequenciesSimd] = getSymbolsAndStartsAndFrequenciesSimd_staticCdf_LutOnly(
-                                probabilitiesSimd, cdf);
-                        // TODO: support LUT/CDF mixed lookup
+                        auto [symbolsSimd, startsSimd, frequenciesSimd] = symbolLookupAvx.getSymbolInfo(cdfOffsets, lutOffsets, probabilitiesSimd);
 
                         // TODO: if probability is a bypass sentinel, handle as bypass symbol
 
                         advanceSymbol(ransSimd, probabilitiesSimd, startsSimd, frequenciesSimd);
                         renormSimd(ransSimd);
 
-                        auto symbols = fromSimd(symbolsSimd);
+                        auto symbols = SimdDataTypeWrapper::fromSimd(symbolsSimd);
                         result.insert(result.end(), symbols.begin(), symbols.end());
                     }
                 }
@@ -89,7 +84,7 @@ namespace Recoil {
             {
                 // Step 3: decode final unaligned parts
                 if (completedCount != count) {
-                    auto finalUnalignedResult = MyRansDecoder::decode(cdf, count - completedCount);
+                    auto finalUnalignedResult = MyRansDecoder::decode(cdfOffset, lutOffset, count - completedCount);
                     result.insert(result.end(), finalUnalignedResult.begin(), finalUnalignedResult.end());
                 }
             }
@@ -97,55 +92,37 @@ namespace Recoil {
             return result;
         }
 
-        std::vector<ValueType> decode(const std::span<Cdf> cdfs) {
+        std::vector<ValueType> decode(const std::span<CdfLutOffsetType> cdfOffsets, const std::span<CdfLutOffsetType> lutOffsets) {
+            assert(cdfOffsets.size() == lutOffsets.size());
+
             std::vector<ValueType> result;
-            result.reserve(cdfs.size());
+            result.reserve(cdfOffsets.size());
             // TODO
 
             return result;
         }
     protected:
+        SymbolLookupAVX symbolLookupAvx;
+
         inline void createRansSimds(SimdDataType* ransSimds) {
             for (auto b = 0; b < RansStepCount; b++) {
                 alignas(sizeof(SimdDataType)) SimdArrayType rans{};
                 for (auto i = 0; i < RansBatchSize; i++) {
                     rans[i] = this->rans[b * RansBatchSize + i].state;
                 }
-                ransSimds[b] = toSimd(rans);
+                ransSimds[b] = SimdDataTypeWrapper::toSimd(rans);
             }
         };
 
         inline void writeBackRansSimds(SimdDataType *ransSimds) {
             for (auto b = 0; b < RansStepCount; b++) {
-                auto rans = fromSimd(ransSimds[b]);
+                auto rans = SimdDataTypeWrapper::fromSimd(ransSimds[b]);
                 for (auto i = 0; i < RansBatchSize; i++) {
                     this->rans[b * RansBatchSize + i].state = rans[i];
                 }
             }
         };
 
-        inline auto getSymbolsAndStartsAndFrequencies_generic(const SimdDataType probabilitiesSimd, const std::array<Cdf, RansBatchSize> &cdfs) {
-            std::array<bool, RansBatchSize> bypass{};
-            alignas(sizeof(SimdDataType)) SimdArrayType symbols{}, starts{}, frequencies{};
-            auto probabilities = fromSimd(probabilitiesSimd);
-
-            for (size_t i = 0; i < RansBatchSize; i++) {
-                auto symbol = cdfs[i].findValue(probabilities[i]);
-                if (symbol.has_value()) [[likely]] {
-                    bypass[i] = false;
-                    symbols[i] = symbol.value();
-                    std::tie(starts[i], frequencies[i]) = cdfs[i].getStartAndFrequency(symbols[i]).value();
-                } else {
-                    bypass[i] = true;
-                }
-            }
-
-            return std::make_tuple(bypass, toSimd(symbols), toSimd(starts), toSimd(frequencies));
-        }
-        virtual std::tuple<SimdDataType, SimdDataType, SimdDataType> getSymbolsAndStartsAndFrequenciesSimd_staticCdf_LutOnly(SimdDataType probabilitiesSimd, Cdf cdf) const = 0;
-
-        virtual SimdDataType toSimd(const SimdArrayType &val) const = 0;
-        virtual SimdArrayType fromSimd(SimdDataType simd) const = 0;
 
         virtual SimdDataType getProbabilities(SimdDataType ransSimd) const = 0;
         virtual void advanceSymbol(SimdDataType &ransSimd, SimdDataType lastProbabilities,

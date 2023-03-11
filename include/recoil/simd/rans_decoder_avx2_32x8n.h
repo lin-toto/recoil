@@ -2,6 +2,8 @@
 #define RECOIL_RANS_DECODER_AVX2_32X8N_H
 
 #include "recoil/simd/rans_decoder_avx_base.h"
+#include "recoil/symbol_lookup/cdf_lut_pool.h"
+#include "recoil/symbol_lookup/simd/symbol_lookup_avx2_32x8.h"
 #include "recoil/lib/simd/avx2_permute.h"
 #include <x86intrin.h>
 #include <vector>
@@ -9,17 +11,13 @@
 #include <bit>
 
 namespace Recoil {
-    namespace {
-        using u32x8 = __m256i;
-        struct u32x8_wrapper {
-            using SimdDataType = u32x8;
-        };
-    }
-
-    template<uint8_t ProbBits, uint32_t RenormLowerBound, size_t NInterleaved>
+    template<std::unsigned_integral ValueType, uint8_t ProbBits, uint32_t RenormLowerBound, uint8_t LutGranularity, size_t NInterleaved>
     class RansDecoder_AVX2_32x8n : public RansDecoder_AVXBase<
-            uint32_t, uint16_t, ProbBits, RenormLowerBound, 16, NInterleaved, u32x8_wrapper> {
-        using MyBase = RansDecoder_AVXBase<uint32_t, uint16_t, ProbBits, RenormLowerBound, 16, NInterleaved, u32x8_wrapper>;
+            uint16_t, ValueType, uint32_t, uint16_t, ProbBits, RenormLowerBound, 16, LutGranularity, NInterleaved, u32x8_wrapper,
+            SymbolLookup_AVX2_32x8<ValueType, ProbBits, LutGranularity>> {
+        using MyBase = RansDecoder_AVXBase<
+                uint16_t, ValueType, uint32_t, uint16_t, ProbBits, RenormLowerBound, 16, LutGranularity, NInterleaved, u32x8_wrapper,
+                SymbolLookup_AVX2_32x8<ValueType, ProbBits, LutGranularity>>;
         using SimdArrayType = typename MyBase::SimdArrayType;
         using MyBase::RansBatchSize, MyBase::RansStepCount;
 
@@ -27,37 +25,9 @@ namespace Recoil {
     public:
         using MyBase::MyBase;
     protected:
-        [[nodiscard]] inline u32x8 toSimd(const SimdArrayType &val) const override {
-            return _mm256_load_si256(reinterpret_cast<const u32x8*>(val.begin()));
-        }
-
-        [[nodiscard]] inline SimdArrayType fromSimd(const u32x8 simd) const override {
-            alignas(32) std::array<uint32_t, RansBatchSize> val;
-            _mm256_store_si256(reinterpret_cast<u32x8*>(val.begin()), simd);
-            return val;
-        }
-
         [[nodiscard]] inline u32x8 getProbabilities(const u32x8 ransSimd) const override {
             const u32x8 probabilityMask = _mm256_set1_epi32((1 << ProbBits) - 1);
             return _mm256_and_si256(ransSimd, probabilityMask);
-        }
-
-        [[nodiscard]] inline std::tuple<u32x8, u32x8, u32x8> getSymbolsAndStartsAndFrequenciesSimd_staticCdf_LutOnly(
-                const u32x8 probabilitiesSimd, const Cdf cdf) const override {
-            const u32x8 valueMask = _mm256_set1_epi32((1 << (8 * sizeof(ValueType))) - 1);
-            const u32x8 cdfMask = _mm256_set1_epi32((1 << (8 * sizeof(CdfType))) - 1);
-
-            u32x8 symbols = _mm256_and_si256(
-                    _mm256_i32gather_epi32(reinterpret_cast<const int*>(&(*cdf.lut.begin())), probabilitiesSimd, sizeof(ValueType)),
-                    valueMask);
-
-            u32x8 cdfReadout = _mm256_i32gather_epi32(reinterpret_cast<const int*>(&(*cdf.cdf.begin())), symbols, sizeof(CdfType));
-            u32x8 starts = _mm256_and_si256(cdfReadout, cdfMask);
-            u32x8 nextStarts = _mm256_srli_epi32(cdfReadout, sizeof(CdfType) * 8);
-            if constexpr (sizeof(cdfMask) == 1) nextStarts = _mm256_and_si256(nextStarts, cdfMask);
-            u32x8 frequencies = _mm256_sub_epi32(nextStarts, starts);
-
-            return std::make_tuple(symbols, starts, frequencies);
         }
 
         inline void advanceSymbol(u32x8 &ransSimd, const u32x8 lastProbabilities,
@@ -104,10 +74,11 @@ namespace Recoil {
         }
     };
 
-    template<uint8_t ProbBits, uint32_t RenormLowerBound, size_t nInterleaved>
+    template<std::unsigned_integral ValueType, uint8_t ProbBits, uint32_t RenormLowerBound, uint8_t LutGranularity, size_t NInterleaved>
     RansDecoder_AVX2_32x8n(std::span<uint16_t>,
-                           std::array<Rans<uint32_t, uint16_t, ProbBits, RenormLowerBound, 16>, nInterleaved>)
-            -> RansDecoder_AVX2_32x8n<ProbBits, RenormLowerBound, nInterleaved>;
+                           std::array<Rans<uint16_t, ValueType, uint32_t, uint16_t, ProbBits, RenormLowerBound, 16>, NInterleaved>,
+                           const CdfLutPool<uint16_t, ValueType, ProbBits, LutGranularity>&)
+            -> RansDecoder_AVX2_32x8n<ValueType, ProbBits, RenormLowerBound, LutGranularity, NInterleaved>;
 }
 
 #endif //RECOIL_RANS_DECODER_AVX2_32X8N_H

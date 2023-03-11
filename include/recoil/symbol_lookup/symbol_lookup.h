@@ -14,6 +14,7 @@ namespace Recoil {
     template <std::unsigned_integral CdfType, std::unsigned_integral ValueType,
             uint8_t ProbBits, uint8_t LutGranularity>
     class SymbolLookup {
+    protected:
         using MyCdfLutPool = CdfLutPool<CdfType, ValueType, ProbBits, LutGranularity>;
         using MyLutItem = LutItem<CdfType, ValueType, ProbBits, LutGranularity>;
     public:

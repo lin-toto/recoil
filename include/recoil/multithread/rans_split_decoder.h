@@ -4,7 +4,7 @@
 #include "recoil/rans.h"
 #include "recoil/rans_coded_data.h"
 #include "recoil/rans_decoder.h"
-//#include "recoil/simd/rans_decoder_avx2_32x8n.h"
+#include "recoil/simd/rans_decoder_avx2_32x8n.h"
 #include <span>
 
 namespace Recoil {
@@ -19,9 +19,9 @@ namespace Recoil {
                 CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved, NSplits>;
 
         // TODO: allow any class derived from RansDecoder, from a template parameter
-        using MyRansDecoder = RansDecoder<
-                CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, LutGranularity, NInterleaved>;
-        //using MyRansDecoder = RansDecoder_AVX2_32x8n<ProbBits, RenormLowerBound, NInterleaved>;
+        //using MyRansDecoder = RansDecoder<
+        //        CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, LutGranularity, NInterleaved>;
+        using MyRansDecoder = RansDecoder_AVX2_32x8n<ValueType, ProbBits, RenormLowerBound, LutGranularity, NInterleaved>;
     public:
         explicit RansSplitDecoder(MyRansCodedDataWithSplits data, const MyCdfLutPool& pool) : data(std::move(data)), pool(pool) {}
 
