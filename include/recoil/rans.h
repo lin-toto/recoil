@@ -4,6 +4,7 @@
 #include "recoil/cuda/macros.h"
 #include <optional>
 #include <concepts>
+#include <cstdint>
 
 namespace Recoil {
     template<std::unsigned_integral CdfType, std::unsigned_integral ValueType,

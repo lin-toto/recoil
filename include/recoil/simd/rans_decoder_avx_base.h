@@ -36,8 +36,6 @@ namespace Recoil {
         }
 
         std::vector<ValueType> decode(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset, const size_t count) {
-            // TODO: support LUT/CDF mixed lookup
-
             std::vector<ValueType> result;
             result.reserve(count);
             size_t completedCount = 0;
@@ -54,32 +52,7 @@ namespace Recoil {
                 if (completedCount == count) [[unlikely]] return result;
             }
 
-            {
-                SimdDataType ransSimds[RansStepCount];
-                createRansSimds(ransSimds);
-
-                const SimdDataType cdfOffsets = SimdDataTypeWrapper::setAll(cdfOffset);
-                const SimdDataType lutOffsets = SimdDataTypeWrapper::setAll(lutOffset);
-
-                for (; completedCount + NInterleaved <= count; completedCount += NInterleaved) {
-                    for (auto b = 0; b < RansStepCount; b++) {
-                        auto& ransSimd = ransSimds[b];
-                        auto probabilitiesSimd = getProbabilities(ransSimd);
-
-                        auto [symbolsSimd, startsSimd, frequenciesSimd] = symbolLookupAvx.getSymbolInfo(cdfOffsets, lutOffsets, probabilitiesSimd);
-
-                        // TODO: if probability is a bypass sentinel, handle as bypass symbol
-
-                        advanceSymbol(ransSimd, probabilitiesSimd, startsSimd, frequenciesSimd);
-                        renormSimd(ransSimd);
-
-                        auto symbols = SimdDataTypeWrapper::fromSimd(symbolsSimd);
-                        result.insert(result.end(), symbols.begin(), symbols.end());
-                    }
-                }
-
-                writeBackRansSimds(ransSimds);
-            }
+            completedCount += decodeAligned(cdfOffset, lutOffset, count - completedCount, result);
 
             {
                 // Step 3: decode final unaligned parts
@@ -123,6 +96,35 @@ namespace Recoil {
             }
         };
 
+        virtual size_t decodeAligned(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset, const size_t count, std::vector<ValueType> &result) {
+            SimdDataType ransSimds[RansStepCount];
+            createRansSimds(ransSimds);
+
+            const SimdDataType cdfOffsets = SimdDataTypeWrapper::setAll(cdfOffset);
+            const SimdDataType lutOffsets = SimdDataTypeWrapper::setAll(lutOffset);
+
+            auto completedCount = 0;
+            for (; completedCount + NInterleaved <= count; completedCount += NInterleaved) {
+                for (auto b = 0; b < RansStepCount; b++) {
+                    auto& ransSimd = ransSimds[b];
+                    auto probabilitiesSimd = getProbabilities(ransSimd);
+
+                    auto [symbolsSimd, startsSimd, frequenciesSimd] = symbolLookupAvx.getSymbolInfo(cdfOffsets, lutOffsets, probabilitiesSimd);
+
+                    // TODO: if probability is a bypass sentinel, handle as bypass symbol
+
+                    advanceSymbol(ransSimd, probabilitiesSimd, startsSimd, frequenciesSimd);
+                    renormSimd(ransSimd);
+
+                    auto symbols = SimdDataTypeWrapper::fromSimd(symbolsSimd);
+                    result.insert(result.end(), symbols.begin(), symbols.end());
+                }
+            }
+
+            writeBackRansSimds(ransSimds);
+
+            return completedCount;
+        }
 
         virtual SimdDataType getProbabilities(SimdDataType ransSimd) const = 0;
         virtual void advanceSymbol(SimdDataType &ransSimd, SimdDataType lastProbabilities,

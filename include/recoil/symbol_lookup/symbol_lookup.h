@@ -57,7 +57,7 @@ namespace Recoil {
         [[nodiscard]] CUDA_HOST_DEVICE inline const MyLutItem * __restrict__ getLut(CdfLutOffsetType lutOffset) const { return lutPool + lutOffset; }
 
         [[nodiscard]] CUDA_HOST_DEVICE inline SymbolInfo linearSearch(
-                CdfLutOffsetType cdfOffset, CdfType probability, CdfLutOffsetType startOffset = 0) {
+                CdfLutOffsetType cdfOffset, CdfType probability, CdfLutOffsetType startOffset = 0) const {
             auto cdf = getCdf(cdfOffset);
             for (auto *it = cdf + startOffset + 1; *it != 0; it++) {
                 if (*it > probability) {
