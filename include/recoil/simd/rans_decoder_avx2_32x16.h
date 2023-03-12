@@ -14,10 +14,8 @@ namespace Recoil {
         const size_t NInterleaved = 16;
 
     protected:
-        size_t decodeAligned(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset, const size_t count, std::vector<ValueType> &result) override {
-            auto resultOffset = result.end() - result.begin();
-            result.resize(resultOffset + count);
-
+        size_t decodeAligned(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset,
+                             const size_t count, std::vector<ValueType> &result, const size_t writeOffset) override {
             u32x8 ransSimds[2];
             this->createRansSimds(ransSimds);
 
@@ -41,17 +39,12 @@ namespace Recoil {
                 this->renormSimd(rans0);
                 this->renormSimd(rans1);
 
-                auto sym01 = _mm256_permute4x64_epi64(_mm256_packus_epi32(sym0, sym1), 0xd8);
-                sym01 = _mm256_packus_epi16(sym01, sym01);
-                *reinterpret_cast<uint64_t*>(&result[completedCount]) = _mm256_extract_epi64(sym01, 0);
-                *reinterpret_cast<uint64_t*>(&result[completedCount + 8]) = _mm256_extract_epi64(sym01, 2);
+                this->writeResult(sym0, sym1, result, writeOffset + completedCount);
             }
 
             ransSimds[0] = rans0;
             ransSimds[1] = rans1;
             this->writeBackRansSimds(ransSimds);
-
-            result.resize(resultOffset + completedCount);
 
             return completedCount;
         }

@@ -37,7 +37,7 @@ namespace Recoil {
 
         std::vector<ValueType> decode(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset, const size_t count) {
             std::vector<ValueType> result;
-            result.reserve(count);
+            result.resize(count);
             size_t completedCount = 0;
 
             {
@@ -46,19 +46,19 @@ namespace Recoil {
                 if (unalignedCount != NInterleaved) { // If equal to NInterleaved, it is at beginning; no action needed
                     auto initialUnalignedResult = MyRansDecoder::decode(cdfOffset, lutOffset, unalignedCount);
                     completedCount += unalignedCount;
-                    result.insert(result.end(), initialUnalignedResult.begin(), initialUnalignedResult.end());
+                    std::copy(initialUnalignedResult.begin(), initialUnalignedResult.end(), result.begin());
                 }
 
                 if (completedCount == count) [[unlikely]] return result;
             }
 
-            completedCount += decodeAligned(cdfOffset, lutOffset, count - completedCount, result);
+            completedCount += decodeAligned(cdfOffset, lutOffset, count - completedCount, result, completedCount);
 
             {
                 // Step 3: decode final unaligned parts
                 if (completedCount != count) {
                     auto finalUnalignedResult = MyRansDecoder::decode(cdfOffset, lutOffset, count - completedCount);
-                    result.insert(result.end(), finalUnalignedResult.begin(), finalUnalignedResult.end());
+                    std::copy(finalUnalignedResult.begin(), finalUnalignedResult.end(), result.begin() + completedCount);
                 }
             }
 
@@ -96,7 +96,8 @@ namespace Recoil {
             }
         };
 
-        virtual size_t decodeAligned(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset, const size_t count, std::vector<ValueType> &result) {
+        virtual size_t decodeAligned(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset,
+                                     const size_t count, std::vector<ValueType> &result, const size_t writeOffset) {
             SimdDataType ransSimds[RansStepCount];
             createRansSimds(ransSimds);
 
@@ -109,21 +110,32 @@ namespace Recoil {
                     auto& ransSimd = ransSimds[b];
                     auto probabilitiesSimd = getProbabilities(ransSimd);
 
-                    auto [symbolsSimd, startsSimd, frequenciesSimd] = symbolLookupAvx.getSymbolInfo(cdfOffsets, lutOffsets, probabilitiesSimd);
+                    auto [symbolsSimd, startsSimd, frequenciesSimd] = symbolLookupAvx.getSymbolInfo(
+                            cdfOffsets, lutOffsets, probabilitiesSimd);
 
                     // TODO: if probability is a bypass sentinel, handle as bypass symbol
 
                     advanceSymbol(ransSimd, probabilitiesSimd, startsSimd, frequenciesSimd);
                     renormSimd(ransSimd);
 
-                    auto symbols = SimdDataTypeWrapper::fromSimd(symbolsSimd);
-                    result.insert(result.end(), symbols.begin(), symbols.end());
+                    writeResult(symbolsSimd, result, writeOffset + completedCount + b * RansBatchSize);
                 }
             }
 
             writeBackRansSimds(ransSimds);
 
             return completedCount;
+        }
+
+        virtual void writeResult(const SimdDataType symbolsSimd, std::vector<ValueType> &result, const size_t writeOffset) {
+            auto symbols = SimdDataTypeWrapper::fromSimd(symbolsSimd);
+            std::copy(symbols.begin(), symbols.end(), result.begin() + writeOffset);
+        }
+
+        virtual void writeResult(const SimdDataType symbolsSimd1, const SimdDataType symbolsSimd2,
+                                 std::vector<ValueType> &result, const size_t writeOffset) {
+            writeResult(symbolsSimd1, result, writeOffset);
+            writeResult(symbolsSimd2, result, writeOffset + sizeof(SimdDataType) / sizeof(RansStateType));
         }
 
         virtual SimdDataType getProbabilities(SimdDataType ransSimd) const = 0;

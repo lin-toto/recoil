@@ -72,6 +72,38 @@ namespace Recoil {
 
             this->bitstreamReverseIt += renormCount;
         }
+
+        inline void writeResult(const u32x8 symbolsSimd, std::vector<ValueType> &result, const size_t writeOffset) {
+            auto sym = _mm256_packus_epi32(symbolsSimd, symbolsSimd);
+            sym = _mm256_permute4x64_epi64(sym, 0xd8);
+            if constexpr (sizeof(ValueType) == 1) { // uint8_t
+                sym = _mm256_packus_epi16(sym, sym);
+                *reinterpret_cast<uint64_t*>(&result[writeOffset]) = _mm256_extract_epi64(sym, 0);
+            } else if constexpr (sizeof(ValueType) == 2) { // uint16_t
+                *reinterpret_cast<uint64_t*>(&result[writeOffset]) = _mm256_extract_epi64(sym, 0);
+                *reinterpret_cast<uint64_t*>(&result[writeOffset] + 4) = _mm256_extract_epi64(sym, 1);
+            } else {
+                []<bool flag = false>() { static_assert(flag, "Unsupported value type"); }();
+            }
+        }
+
+        inline void writeResult(const u32x8 symbolsSimd1, const u32x8 symbolsSimd2,
+                                std::vector<ValueType> &result, const size_t writeOffset) {
+            auto sym = _mm256_packus_epi32(symbolsSimd1, symbolsSimd2);
+            sym = _mm256_permute4x64_epi64(sym, 0xd8);
+            if constexpr (sizeof(ValueType) == 1) { // uint8_t
+                sym = _mm256_packus_epi16(sym, sym);
+                *reinterpret_cast<uint64_t*>(&result[writeOffset]) = _mm256_extract_epi64(sym, 0);
+                *reinterpret_cast<uint64_t*>(&result[writeOffset] + 8) = _mm256_extract_epi64(sym, 2);
+            } else if constexpr (sizeof(ValueType) == 2) { // uint16_t
+                *reinterpret_cast<uint64_t*>(&result[writeOffset]) = _mm256_extract_epi64(sym, 0);
+                *reinterpret_cast<uint64_t*>(&result[writeOffset] + 4) = _mm256_extract_epi64(sym, 1);
+                *reinterpret_cast<uint64_t*>(&result[writeOffset] + 8) = _mm256_extract_epi64(sym, 2);
+                *reinterpret_cast<uint64_t*>(&result[writeOffset] + 12) = _mm256_extract_epi64(sym, 3);
+            } else {
+                []<bool flag = false>() { static_assert(flag, "Unsupported value type"); }();
+            }
+        }
     };
 
     template<std::unsigned_integral ValueType, uint8_t ProbBits, uint32_t RenormLowerBound, uint8_t LutGranularity, size_t NInterleaved>
