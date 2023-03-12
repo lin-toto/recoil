@@ -41,14 +41,7 @@ namespace Recoil {
                 startOffset = getLut(lutOffset)[probability >> (LutGranularity - 1)].getValue();
             }
 
-            auto cdf = getCdf(cdfOffset);
-            for (auto *it = cdf + startOffset + 1; *it != 0; it++) {
-                if (*it > probability) {
-                    return SymbolInfo{ static_cast<ValueType>(it - 1 - cdf) , *(it - 1), static_cast<CdfType>(*it - *(it - 1)) };
-                }
-            }
-
-            // TODO: handle the case when the value is not found; used for bypass coding
+            return linearSearch(cdfOffset, probability, startOffset);
         }
 
         [[nodiscard]] inline SymbolInfo getSymbolInfo(CdfLutOffsetType cdfOffset, ValueType symbol) const {
@@ -62,6 +55,18 @@ namespace Recoil {
 
         [[nodiscard]] CUDA_HOST_DEVICE inline const CdfType * __restrict__ getCdf(CdfLutOffsetType cdfOffset) const { return cdfPool + cdfOffset; }
         [[nodiscard]] CUDA_HOST_DEVICE inline const MyLutItem * __restrict__ getLut(CdfLutOffsetType lutOffset) const { return lutPool + lutOffset; }
+
+        [[nodiscard]] CUDA_HOST_DEVICE inline SymbolInfo linearSearch(
+                CdfLutOffsetType cdfOffset, CdfType probability, CdfLutOffsetType startOffset = 0) {
+            auto cdf = getCdf(cdfOffset);
+            for (auto *it = cdf + startOffset + 1; *it != 0; it++) {
+                if (*it > probability) {
+                    return SymbolInfo{ static_cast<ValueType>(it - 1 - cdf) , *(it - 1), static_cast<CdfType>(*it - *(it - 1)) };
+                }
+            }
+
+            // TODO: handle the case when the value is not found; used for bypass coding
+        }
     };
 }
 
