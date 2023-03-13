@@ -43,33 +43,18 @@ int main(int argc, const char **argv) {
     auto symbols = stringToSymbols<ValueType>(text);
     enc.getEncoder().buffer(symbols, cdfOffset);
     auto result = enc.flushSplits<NSplit>();
-
-    std::array<std::vector<ValueType>, NSplit> decoded;
-
+    
     RansSplitDecoder dec(result, pool);
 
     std::array<std::future<unsigned int>, NSplit> tasks;
     for (int i = 0; i < NSplit; i++) {
-        tasks[i] = std::async(std::launch::async, [i, &dec, &decoded, cdfOffset, lutOffset] {
-            auto time = timeIt([&]() { decoded[i] = dec.decodeSplit(i, cdfOffset, lutOffset); });
+        tasks[i] = std::async(std::launch::async, [i, &dec, cdfOffset, lutOffset] {
+            auto time = timeIt([&]() { dec.decodeSplit(i, cdfOffset, lutOffset); });
             return time;
         });
     }
 
-    std::vector<ValueType> allDecoded;
-    double sumThroughput = 0;
-    for (int i = 0; i < NSplit; i++) {
-        tasks[i].wait();
-        auto time = tasks[i].get();
-        auto t = decoded[i].size() / (time / 1000000.0) / 1024 / 1024;
-        std::cout << "Multithread Throughput: " << t << " MB/s" << std::endl;
-        sumThroughput += t;
-
-        std::copy(decoded[i].begin(), decoded[i].end(), std::back_inserter(allDecoded));
-    }
-    std::cout << "Sum: " << sumThroughput << " MB/s" << std::endl;
-
-    if (std::equal(symbols.begin(), symbols.end(), allDecoded.begin())) {
+    if (std::equal(symbols.begin(), symbols.end(), dec.result.begin())) {
         std::cout << "Decoding success!" << std::endl;
     } else {
         std::cerr << "Decoding failed!" << std::endl;

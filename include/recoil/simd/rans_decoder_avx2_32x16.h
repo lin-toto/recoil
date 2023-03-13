@@ -15,7 +15,7 @@ namespace Recoil {
 
     protected:
         size_t decodeAligned(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset,
-                             const size_t count, std::vector<ValueType> &result, const size_t writeOffset) override {
+                             const size_t count, const std::span<ValueType> output) override {
             u32x8 ransSimds[2];
             this->createRansSimds(ransSimds);
 
@@ -39,7 +39,7 @@ namespace Recoil {
                 this->renormSimd(rans0);
                 this->renormSimd(rans1);
 
-                this->writeResult(sym0, sym1, result, writeOffset + completedCount);
+                this->writeResult(sym0, sym1, output.data() + completedCount);
             }
 
             ransSimds[0] = rans0;

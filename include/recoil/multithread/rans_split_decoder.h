@@ -25,9 +25,13 @@ namespace Recoil {
         //using MyRansDecoder = RansDecoder_AVX2_32x8n<ValueType, ProbBits, RenormLowerBound, LutGranularity, NInterleaved>;
         using MyRansDecoder = RansDecoder_AVX2_32x32<ValueType, ProbBits, RenormLowerBound, LutGranularity>;
     public:
-        explicit RansSplitDecoder(MyRansCodedDataWithSplits data, const MyCdfLutPool& pool) : data(std::move(data)), pool(pool) {}
+        std::vector<ValueType> result;
 
-        std::vector<ValueType> decodeSplit(const size_t splitId, const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset) {
+        explicit RansSplitDecoder(MyRansCodedDataWithSplits data, const MyCdfLutPool& pool) : data(std::move(data)), pool(pool) {
+            result.resize(data.symbolCount);
+        }
+
+        void decodeSplit(const size_t splitId, const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset) {
             auto& currentSplit = data.splits[splitId];
             MyRansDecoder decoder(
                     std::span(data.bitstream.data(), currentSplit.cutPosition + 1),
@@ -51,13 +55,14 @@ namespace Recoil {
                 }
             }
 
+            std::span resultSpan{result};
             size_t decodeStartSymbolId = splitId == 0 ? 0 : NInterleaved * (currentSplit.maxSymbolGroupId() + 1);
             size_t decodeEndSymbolId = splitId == NSplits - 1 ? data.symbolCount
                     : NInterleaved * (1 + data.splits[splitId + 1].maxSymbolGroupId());
-            return decoder.decode(cdfOffset, lutOffset, decodeEndSymbolId - decodeStartSymbolId);
+            decoder.decode(cdfOffset, lutOffset, decodeEndSymbolId - decodeStartSymbolId, resultSpan.subspan(decodeStartSymbolId));
         }
 
-        std::vector<ValueType> decodeSplit(size_t splitId, const std::span<CdfLutOffsetType> allCdfOffsets, const std::span<CdfLutOffsetType> allLutOffsets) {
+        void decodeSplit(size_t splitId, const std::span<CdfLutOffsetType> allCdfOffsets, const std::span<CdfLutOffsetType> allLutOffsets) {
             // TODO
         }
     protected:

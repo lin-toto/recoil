@@ -28,51 +28,36 @@ namespace Recoil {
         static_assert(NInterleaved % RansBatchSize == 0, "AVX decoder must work on RansPerBatchxN streams");
         static_assert(MyRansDecoder::MyRans::oneShotRenorm, "Only one shot renorm decoders are supported by AVX decoder");
     public:
+        using MyRansDecoder::decode;
+
         RansDecoder_AVXBase(const std::span<RansBitstreamType> bitstream, std::array<MyRans, NInterleaved> rans, const MyCdfLutPool& pool)
             : symbolLookupAvx(pool), MyRansDecoder(bitstream, std::move(rans), pool) {}
 
-        std::vector<ValueType> decode(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset) {
-            throw std::runtime_error("Not implemented for AVX");
-        }
-
-        std::vector<ValueType> decode(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset, const size_t count) {
-            std::vector<ValueType> result;
-            result.resize(count);
+        void decode(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset, const size_t count, const std::span<ValueType> output) override {
+            if (output.size() < count) [[unlikely]] throw std::runtime_error("Not enough buffer space");
             size_t completedCount = 0;
 
             {
                 // Step 1: decode initial unaligned parts so that ransIt is now at beginning
                 auto unalignedCount = std::min(static_cast<size_t>(this->rans.end() - this->ransIt), count);
                 if (unalignedCount != NInterleaved) { // If equal to NInterleaved, it is at beginning; no action needed
-                    auto initialUnalignedResult = MyRansDecoder::decode(cdfOffset, lutOffset, unalignedCount);
+                    MyRansDecoder::decode(cdfOffset, lutOffset, unalignedCount, output);
                     completedCount += unalignedCount;
-                    std::copy(initialUnalignedResult.begin(), initialUnalignedResult.end(), result.begin());
                 }
 
-                if (completedCount == count) [[unlikely]] return result;
+                if (completedCount == count) [[unlikely]] return;
             }
 
-            completedCount += decodeAligned(cdfOffset, lutOffset, count - completedCount, result, completedCount);
+            auto alignedCount = (count - completedCount) / NInterleaved * NInterleaved;
+            decodeAligned(cdfOffset, lutOffset, alignedCount, output.subspan(completedCount));
+            completedCount += alignedCount;
 
             {
                 // Step 3: decode final unaligned parts
                 if (completedCount != count) {
-                    auto finalUnalignedResult = MyRansDecoder::decode(cdfOffset, lutOffset, count - completedCount);
-                    std::copy(finalUnalignedResult.begin(), finalUnalignedResult.end(), result.begin() + completedCount);
+                    MyRansDecoder::decode(cdfOffset, lutOffset, count - completedCount, output.subspan(completedCount));
                 }
             }
-
-            return result;
-        }
-
-        std::vector<ValueType> decode(const std::span<CdfLutOffsetType> cdfOffsets, const std::span<CdfLutOffsetType> lutOffsets) {
-            assert(cdfOffsets.size() == lutOffsets.size());
-
-            std::vector<ValueType> result;
-            result.reserve(cdfOffsets.size());
-            // TODO
-
-            return result;
         }
     protected:
         SymbolLookupAVX symbolLookupAvx;
@@ -97,7 +82,7 @@ namespace Recoil {
         };
 
         virtual size_t decodeAligned(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset,
-                                     const size_t count, std::vector<ValueType> &result, const size_t writeOffset) {
+                                     const size_t count, const std::span<ValueType> output) {
             SimdDataType ransSimds[RansStepCount];
             createRansSimds(ransSimds);
 
@@ -118,7 +103,7 @@ namespace Recoil {
                     advanceSymbol(ransSimd, probabilitiesSimd, startsSimd, frequenciesSimd);
                     renormSimd(ransSimd);
 
-                    writeResult(symbolsSimd, result, writeOffset + completedCount + b * RansBatchSize);
+                    writeResult(symbolsSimd, output.data() + completedCount + b * RansBatchSize);
                 }
             }
 
@@ -127,15 +112,14 @@ namespace Recoil {
             return completedCount;
         }
 
-        virtual void writeResult(const SimdDataType symbolsSimd, std::vector<ValueType> &result, const size_t writeOffset) {
+        virtual void writeResult(const SimdDataType symbolsSimd, ValueType *ptr) {
             auto symbols = SimdDataTypeWrapper::fromSimd(symbolsSimd);
-            std::copy(symbols.begin(), symbols.end(), result.begin() + writeOffset);
+            std::copy(symbols.begin(), symbols.end(), ptr);
         }
 
-        virtual void writeResult(const SimdDataType symbolsSimd1, const SimdDataType symbolsSimd2,
-                                 std::vector<ValueType> &result, const size_t writeOffset) {
-            writeResult(symbolsSimd1, result, writeOffset);
-            writeResult(symbolsSimd2, result, writeOffset + sizeof(SimdDataType) / sizeof(RansStateType));
+        virtual void writeResult(const SimdDataType symbolsSimd1, const SimdDataType symbolsSimd2, ValueType *ptr) {
+            writeResult(symbolsSimd1, ptr);
+            writeResult(symbolsSimd2, ptr + sizeof(SimdDataType) / sizeof(RansStateType));
         }
 
         virtual SimdDataType getProbabilities(SimdDataType ransSimd) const = 0;

@@ -27,16 +27,13 @@ namespace Recoil {
                   ransIt(this->rans.begin()), bitstreamReverseIt(this->bitstream.rbegin()) {}
 
         /*
-         * Decode all available values with a single shared CDF.
+         * Decode count number of values with a single shared CDF.
          */
-        std::vector<ValueType> decode(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset) {
-            std::vector<ValueType> result;
-            while (true) {
-                try {
-                    result.push_back(decodeSymbol(*ransIt, cdfOffset, lutOffset));
-                } catch (const DecodingReachesEndException& e) {
-                    return result;
-                }
+        virtual void decode(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset, const size_t count, const std::span<ValueType> output) {
+            if (output.size() < count) [[unlikely]] throw std::runtime_error("Not enough buffer space");
+
+            for (auto i = 0; i < count; i++) {
+                output[i] = decodeSymbol(*ransIt, cdfOffset, lutOffset);
 
                 if constexpr (NInterleaved > 1) {
                     ransIt++;
@@ -45,43 +42,34 @@ namespace Recoil {
             }
         }
 
-        /*
-         * Decode count number of values with a single shared CDF.
-         */
         std::vector<ValueType> decode(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset, const size_t count) {
             std::vector<ValueType> result;
-            result.reserve(count);
-
-            for (auto i = 0; i < count; i++) {
-                result.push_back(decodeSymbol(*ransIt, cdfOffset, lutOffset));
-
-                if constexpr (NInterleaved > 1) {
-                    ransIt++;
-                    if (ransIt == rans.end()) ransIt = rans.begin();
-                }
-            }
-
+            result.resize(count);
+            decode(cdfOffset, lutOffset, count, std::span{result});
             return result;
         }
 
         /*
          * Decode the values with independent CDF for each symbol.
          */
-        std::vector<ValueType> decode(const std::span<CdfLutOffsetType> cdfOffsets, const std::span<CdfLutOffsetType> lutOffsets) {
-            assert(cdfOffsets.size() == lutOffsets.size());
-
-            std::vector<ValueType> result;
-            result.reserve(cdfOffsets.size());
+        virtual void decode(const std::span<CdfLutOffsetType> cdfOffsets, const std::span<CdfLutOffsetType> lutOffsets, const std::span<ValueType> output) {
+            if (cdfOffsets.size() != lutOffsets.size()) [[unlikely]] throw std::runtime_error("CDF and LUT offset length mismatch");
+            if (output.size() < cdfOffsets.size()) [[unlikely]] throw std::runtime_error("Not enough buffer space");
 
             for (int i = 0; i < cdfOffsets.size(); i++) {
-                result.push_back(decodeSymbol(*ransIt, cdfOffsets[i], lutOffsets[i]));
+                output[i] = decodeSymbol(*ransIt, cdfOffsets[i], lutOffsets[i]);
 
                 if constexpr (NInterleaved > 1) {
                     ransIt++;
                     if (ransIt == rans.end()) ransIt = rans.begin();
                 }
             }
+        }
 
+        std::vector<ValueType> decode(const std::span<CdfLutOffsetType> cdfOffsets, const std::span<CdfLutOffsetType> lutOffsets) {
+            std::vector<ValueType> result;
+            result.resize(cdfOffsets.size());
+            decode(cdfOffsets, lutOffsets, std::span{result});
             return result;
         }
 
