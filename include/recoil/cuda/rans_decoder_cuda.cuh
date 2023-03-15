@@ -34,7 +34,7 @@ namespace Recoil {
                 symbolLookup(pool), decoder(rans) {}
 
         CUDA_DEVICE void decode(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset, const uint32_t count) {
-            const unsigned int decoderId = threadIdx.x;
+            const unsigned int decoderId = threadIdx.x % NInterleaved;
 
             for (uint32_t i = 0; i + NInterleaved <= count; i += NInterleaved) {
                 outputPtr[decoderId] = decodeOnce(cdfOffset, lutOffset);

@@ -17,7 +17,7 @@ namespace Recoil {
         template<std::unsigned_integral CdfType, std::unsigned_integral ValueType,
                 std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
                 uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits, uint8_t LutGranularity,
-                size_t NInterleaved>
+                size_t NInterleaved, uint32_t NThreads>
         CUDA_GLOBAL void launchCudaDecode_staticCdf(
                 const uint32_t nSplits,
                 uint32_t totalSymbolCount,
@@ -28,7 +28,7 @@ namespace Recoil {
                 const CdfLutOffsetType cdfOffset,
                 const CdfLutOffsetType lutOffset
         ) {
-            const unsigned int splitId = blockIdx.x, decoderId = threadIdx.x;
+            const unsigned int splitId = blockIdx.x * (NThreads / NInterleaved) + threadIdx.x / NInterleaved, decoderId = threadIdx.x % NInterleaved;
             const auto& currentSplit = splits[splitId];
 
             uint32_t decodeStartSymbolId = splitId == 0 ? 0 : NInterleaved * (currentSplit.maxSymbolGroupId + 1);
@@ -97,6 +97,8 @@ namespace Recoil {
         }
 
         std::vector<ValueType> decodeAll(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset) {
+            const int NThreads = 64;
+
             MyCdfLutPool poolGpu(
                     reinterpret_cast<const CdfType*>(reinterpret_cast<const uint8_t*>(pool.getCdfPool()) - pool.getPool() + poolBuf),
                     pool.getCdfSize(),
@@ -107,8 +109,8 @@ namespace Recoil {
             cudaDeviceSynchronize();
             auto start = std::chrono::high_resolution_clock::now();
 
-            launchCudaDecode_staticCdf<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, LutGranularity, NInterleaved>
-                    <<<metadata.splits.size(), NInterleaved>>>(
+            launchCudaDecode_staticCdf<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, LutGranularity, NInterleaved, NThreads>
+                    <<<metadata.splits.size() / (NThreads / NInterleaved), NThreads>>>(
                     metadata.splits.size(), data.symbolCount, std::move(poolGpu),
                     bitstream, outputBuffer, splits, cdfOffset, lutOffset);
             cudaDeviceSynchronize();

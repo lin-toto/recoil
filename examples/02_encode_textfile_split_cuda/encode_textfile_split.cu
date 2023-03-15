@@ -13,21 +13,21 @@
 using namespace Recoil;
 using namespace Recoil::Examples;
 
-const uint8_t ProbBits = 16;
+const uint8_t ProbBits = 12;
 const uint8_t LutGranularity = 1;
 const size_t NInterleaved = 32;
-const size_t NSplit = 1000;
 
 using CdfType = uint16_t;
 using ValueType = uint8_t;
 
 int main(int argc, const char **argv) {
-    if (argc != 2) {
-        std::cerr << "Usage: " << argv[0] << " [textfile]" << std::endl;
+    if (argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " [textfile] [nsplit]" << std::endl;
         return 1;
     }
 
     auto text = readFile(argv[1]);
+    auto nSplit = std::stoull(argv[2]);
     std::cout << "File size: " << text.length() << " bytes" << std::endl;
 
     auto cdfVec = buildCdfFromString(text, ProbBits);
@@ -40,7 +40,7 @@ int main(int argc, const char **argv) {
     RansSplitEncoder enc((std::array<Rans32<ValueType, ProbBits>, NInterleaved>{}), pool);
     auto symbols = stringToSymbols<ValueType>(text);
     enc.getEncoder().buffer(symbols, cdfOffset);
-    auto result = enc.flushSplits(NSplit);
+    auto result = enc.flushSplits(nSplit);
 
     RansSplitDecoderCuda splitDecoderCuda(result.first, result.second, pool);
     auto decoded = splitDecoderCuda.decodeAll(cdfOffset, lutOffset);

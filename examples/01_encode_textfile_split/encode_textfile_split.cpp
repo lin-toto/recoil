@@ -20,18 +20,18 @@ using namespace std::chrono_literals;
 const uint8_t ProbBits = 12;
 const uint8_t LutGranularity = 1;
 const size_t NInterleaved = 32;
-const size_t NSplit = 28;
 
 using CdfType = uint16_t;
 using ValueType = uint8_t;
 
 int main(int argc, const char **argv) {
-    if (argc != 2) {
-        std::cerr << "Usage: " << argv[0] << " [textfile]" << std::endl;
+    if (argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " [textfile] [nsplit]" << std::endl;
         return 1;
     }
 
     auto text = readFile(argv[1]);
+    auto nSplit = std::stoull(argv[2]);
     std::cout << "File size: " << text.length() << " bytes" << std::endl;
 
     auto cdfVec = buildCdfFromString(text, ProbBits);
@@ -44,24 +44,24 @@ int main(int argc, const char **argv) {
     RansSplitEncoder enc((std::array<Rans32<ValueType, ProbBits>, NInterleaved>{}), pool);
     auto symbols = stringToSymbols<ValueType>(text);
     enc.getEncoder().buffer(symbols, cdfOffset);
-    auto result = enc.flushSplits(NSplit);
+    auto result = enc.flushSplits(nSplit);
 
     RansSplitDecoder dec(result.first, result.second, pool);
 
     Latch latch;
-    std::array<std::future<void>, NSplit> tasks;
-    for (int i = 0; i < NSplit; i++) {
-        tasks[i] = std::async(std::launch::async, [i, &dec, &latch, cdfOffset, lutOffset] {
+    std::vector<std::future<void>> tasks;
+    for (int i = 0; i < nSplit; i++) {
+        tasks.push_back(std::async(std::launch::async, [i, &dec, &latch, cdfOffset, lutOffset] {
             latch.wait();
             dec.decodeSplit(i, cdfOffset, lutOffset);
-        });
+        }));
     }
 
     std::this_thread::sleep_for(100ms);
 
     auto timer = std::chrono::high_resolution_clock::now();
     latch.count_down();
-    for (int i = 0; i < NSplit; i++) tasks[i].wait();
+    for (int i = 0; i < nSplit; i++) tasks[i].wait();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - timer).count();
     std::cout << "Throughput: " << text.length() / (elapsed / 1000000.0) / 1024 / 1024 << " MB/s" << std::endl;
 
