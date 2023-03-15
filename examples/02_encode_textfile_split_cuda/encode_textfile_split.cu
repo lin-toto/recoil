@@ -16,7 +16,7 @@ using namespace Recoil::Examples;
 const uint8_t ProbBits = 16;
 const uint8_t LutGranularity = 1;
 const size_t NInterleaved = 32;
-const size_t NSplit = 100;
+const size_t NSplit = 1000;
 
 using CdfType = uint16_t;
 using ValueType = uint8_t;
@@ -40,10 +40,14 @@ int main(int argc, const char **argv) {
     RansSplitEncoder enc((std::array<Rans32<ValueType, ProbBits>, NInterleaved>{}), pool);
     auto symbols = stringToSymbols<ValueType>(text);
     enc.getEncoder().buffer(symbols, cdfOffset);
-    auto result = enc.flushSplits<NSplit>();
+    auto result = enc.flushSplits(NSplit);
 
-    RansSplitDecoderCuda splitDecoderCuda(result, pool);
+    RansSplitDecoderCuda splitDecoderCuda(result.first, result.second, pool);
     auto decoded = splitDecoderCuda.decodeAll(cdfOffset, lutOffset);
+
+    auto elapsed = splitDecoderCuda.getLastDuration();
+    std::cout << "Time: " << elapsed << "us" << std::endl;
+    std::cout << "Throughput: " << text.length() / (elapsed / 1000000.0) / 1024 / 1024 << " MB/s" << std::endl;
 
     if (std::equal(symbols.begin(), symbols.end(), decoded.begin())) {
         std::cout << "CUDA Decoding success!" << std::endl;

@@ -44,9 +44,9 @@ int main(int argc, const char **argv) {
     RansSplitEncoder enc((std::array<Rans32<ValueType, ProbBits>, NInterleaved>{}), pool);
     auto symbols = stringToSymbols<ValueType>(text);
     enc.getEncoder().buffer(symbols, cdfOffset);
-    auto result = enc.flushSplits<NSplit>();
+    auto result = enc.flushSplits(NSplit);
 
-    RansSplitDecoder dec(result, pool);
+    RansSplitDecoder dec(result.first, result.second, pool);
 
     Latch latch;
     std::array<std::future<void>, NSplit> tasks;

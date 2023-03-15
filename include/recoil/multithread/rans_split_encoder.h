@@ -26,31 +26,32 @@ namespace Recoil {
         // TODO: allow any class derived from RansEncoder, from a template parameter (we may have an AVX encoder in the future)
         using MyRansEncoder = RansEncoder<
                 CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, LutGranularity, NInterleaved, true>;
-        template<size_t NSplits>
-        using MyRansCodedDataWithSplits = RansCodedDataWithSplits<
-                CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved, NSplits>;
+        using MyRansCodedData = RansCodedData<
+                CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved>;
+        using MyRansSplitsMetadata = RansSplitsMetadata<
+                CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved>;
     public:
         explicit RansSplitEncoder(
                 std::array<MyRans, NInterleaved> rans,  const MyCdfLutPool& pool): encoder(std::move(rans), pool) {}
 
         inline MyRansEncoder& getEncoder() { return encoder; }
 
-        template<size_t NSplits>
-        MyRansCodedDataWithSplits<NSplits> flushSplits(SplitStrategy strategy = HeuristicSymbolCount) {
+        std::pair<MyRansCodedData, MyRansSplitsMetadata> flushSplits(size_t nSplits, SplitStrategy strategy = HeuristicSymbolCount) {
             encoder.encodeAll();
 
-            MyRansCodedDataWithSplits<NSplits> result;
+            MyRansCodedData data;
+            MyRansSplitsMetadata metadata;
             switch (strategy) {
                 case HeuristicSymbolCount:
-                    result = flushSplits_heuristicSymbolCount<NSplits>();
+                    std::tie(data, metadata) = flushSplits_heuristicSymbolCount(nSplits);
                     break;
                 case EqualBitstreamLength:
-                    result = flushSplits_equalBitstreamLength<NSplits>();
+                    std::tie(data, metadata) = flushSplits_equalBitstreamLength(nSplits);
                     break;
             }
 
             encoder.reset();
-            return result;
+            return std::make_pair(data, metadata);
         }
     protected:
         MyRansEncoder encoder;
@@ -58,18 +59,16 @@ namespace Recoil {
         /*
          * Simple heuristic strategy to try to assign close symbol counts to each split.
          */
-        template<size_t NSplits>
-        MyRansCodedDataWithSplits<NSplits> flushSplits_heuristicSymbolCount() {
+        std::pair<MyRansCodedData, MyRansSplitsMetadata> flushSplits_heuristicSymbolCount(size_t nSplits) {
             std::array<size_t, NInterleaved> splitZoneEncoderCount{};
-            std::array<std::pair<size_t, size_t>, NSplits> bestSplitPoints{};
-            bestSplitPoints.fill(std::make_pair(0, std::numeric_limits<size_t>::max()));
+            std::vector<std::pair<size_t, size_t>> bestSplitPoints(
+                    nSplits,
+                    std::make_pair(0, std::numeric_limits<size_t>::max()));
 
-            MyRansCodedDataWithSplits<NSplits> result{
-                    encoder.symbolBuffer.size(), std::move(encoder.bitstream), std::move(encoder.rans),
-                    HeuristicSymbolCount, {}
-            };
+            MyRansCodedData result{
+                    encoder.symbolBuffer.size(), std::move(encoder.bitstream), std::move(encoder.rans)};
 
-            auto targetSymbolCountPerSplit = saveDiv(encoder.symbolBuffer.size(), NSplits);
+            auto targetSymbolCountPerSplit = saveDiv(encoder.symbolBuffer.size(), nSplits);
 
             auto stateFrontIt = encoder.intermediateStates.begin();
             auto stateRearIt = encoder.intermediateStates.begin();
@@ -101,7 +100,7 @@ namespace Recoil {
                     auto splitZoneSymbolCount = NInterleaved * (stateFrontIt->symbolGroupId() + 1 - stateRearIt->symbolGroupId());
                     auto cutPosition = std::distance(encoder.intermediateStates.begin(), stateRearIt);
 
-                    for (auto splitId = 1; splitId < NSplits; splitId++) {
+                    for (auto splitId = 1; splitId < nSplits; splitId++) {
                         int64_t targetSymbolId = targetSymbolCountPerSplit * splitId;
                         auto heuristic = std::abs(static_cast<int64_t>(stateRearIt->symbolId) - targetSymbolId) + std::abs(static_cast<int64_t>(stateRearIt->symbolId + splitZoneSymbolCount) - targetSymbolId);
                         if (heuristic < bestSplitPoints[splitId].second)
@@ -111,55 +110,52 @@ namespace Recoil {
                 }
             }
 
-            std::array<size_t, NSplits> splitPoints;
+            std::vector<size_t> splitPoints(nSplits);
             std::transform(bestSplitPoints.begin(), bestSplitPoints.end(), splitPoints.begin(), [](auto v) { return v.first; });
-            buildSplitsMetadata(splitPoints, result);
+            auto metadata = buildSplitsMetadata(splitPoints, HeuristicSymbolCount, result);
 
-            return result;
+            return std::make_pair(result, metadata);
         }
 
-        template<size_t NSplits>
-        MyRansCodedDataWithSplits<NSplits> flushSplits_equalBitstreamLength() {
-            MyRansCodedDataWithSplits<NSplits> result{
-                    encoder.symbolBuffer.size(), std::move(encoder.bitstream), std::move(encoder.rans),
-                    EqualBitstreamLength, {}
-            };
+        std::pair<MyRansCodedData, MyRansSplitsMetadata> flushSplits_equalBitstreamLength(size_t nSplits) {
+            MyRansCodedData result{
+                encoder.symbolBuffer.size(), std::move(encoder.bitstream), std::move(encoder.rans)};
 
-            auto targetLengthPerSplit = saveDiv(result.bitstream.size(), NSplits);
-            std::array<size_t, NSplits> splitPoints;
-            for (auto splitId = 1; splitId < NSplits; splitId++) {
-                splitPoints[splitId] = (NSplits - splitId) * targetLengthPerSplit;
+            auto targetLengthPerSplit = saveDiv(result.bitstream.size(), nSplits);
+            std::vector<size_t> splitPoints(nSplits);
+            for (auto splitId = 1; splitId < nSplits; splitId++) {
+                splitPoints[splitId] = (nSplits - splitId) * targetLengthPerSplit;
             }
-            buildSplitsMetadata(splitPoints, result);
+            auto metadata = buildSplitsMetadata(splitPoints, EqualBitstreamLength, result);
 
-            return result;
+            return std::make_pair(result, metadata);
         }
 
-        template<size_t NSplits>
-        void buildSplitsMetadata(const std::array<size_t, NSplits>& splitPoints, MyRansCodedDataWithSplits<NSplits>& result) {
-            result.splits[0] = {
-                    result.bitstream.size() - 1,
-                    result.finalRans,
-                    {}
-            };
-            for (auto splitId = 1; splitId < NSplits; splitId++) {
+        MyRansSplitsMetadata buildSplitsMetadata(const std::vector<size_t>& splitPoints, SplitStrategy strategy, const MyRansCodedData& result) {
+            const auto nSplits = splitPoints.size();
+
+            MyRansSplitsMetadata metadata{ strategy, {} };
+            metadata.splits.resize(nSplits);
+
+            metadata.splits[0] = { result.bitstream.size() - 1, result.finalRans, {} };
+            for (auto splitId = 1; splitId < nSplits; splitId++) {
                 auto splitPoint = splitPoints[splitId];
                 auto splitPointIt = encoder.intermediateStates.begin() + splitPoint;
-                result.splits[splitId].cutPosition = splitPoint;
+                metadata.splits[splitId].cutPosition = splitPoint;
 
                 size_t foundEncoderCount = 0;
                 while (foundEncoderCount != NInterleaved) {
-                    if (!result.splits[splitId].startSymbolGroupIds[splitPointIt->encoderId()]) {
-                        result.splits[splitId].intermediateRans[splitPointIt->encoderId()].state = splitPointIt->intermediateState;
-                        result.splits[splitId].startSymbolGroupIds[splitPointIt->encoderId()] = splitPointIt->symbolGroupId();
+                    if (!metadata.splits[splitId].startSymbolGroupIds[splitPointIt->encoderId()]) {
+                        metadata.splits[splitId].intermediateRans[splitPointIt->encoderId()].state = splitPointIt->intermediateState;
+                        metadata.splits[splitId].startSymbolGroupIds[splitPointIt->encoderId()] = splitPointIt->symbolGroupId();
                         foundEncoderCount++;
                     }
                     splitPointIt--;
                 }
             }
+
+            return metadata;
         }
-
-
     };
 }
 

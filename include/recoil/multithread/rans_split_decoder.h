@@ -12,12 +12,14 @@ namespace Recoil {
     template<std::unsigned_integral CdfType, std::unsigned_integral ValueType,
             std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
             uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits, uint8_t LutGranularity,
-            size_t NInterleaved, size_t NSplits>
+            size_t NInterleaved>
     class RansSplitDecoder {
     protected:
         using MyCdfLutPool = CdfLutPool<CdfType, ValueType, ProbBits, LutGranularity>;
-        using MyRansCodedDataWithSplits = RansCodedDataWithSplits<
-                CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved, NSplits>;
+        using MyRansCodedData = RansCodedData<
+                CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved>;
+        using MyRansSplitsMetadata = RansSplitsMetadata<
+                CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved>;
 
         // TODO: allow any class derived from RansDecoder, from a template parameter
         //using MyRansDecoder = RansDecoder<
@@ -27,12 +29,13 @@ namespace Recoil {
     public:
         std::vector<ValueType> result;
 
-        explicit RansSplitDecoder(MyRansCodedDataWithSplits data, const MyCdfLutPool& pool) : data(std::move(data)), pool(pool) {
-            result.resize(data.symbolCount);
-        }
+        explicit RansSplitDecoder(MyRansCodedData data, MyRansSplitsMetadata metadata, const MyCdfLutPool &pool)
+            : data(std::move(data)), metadata(std::move(metadata)), pool(pool), result(data.symbolCount) {}
 
         void decodeSplit(const size_t splitId, const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset) {
-            auto& currentSplit = data.splits[splitId];
+            if (splitId >= metadata.splits.size()) [[unlikely]] throw std::runtime_error("Invalid splitId");
+
+            auto& currentSplit = metadata.splits[splitId];
             MyRansDecoder decoder(
                     std::span(data.bitstream.data(), currentSplit.cutPosition + 1),
                     currentSplit.intermediateRans, pool);
@@ -57,8 +60,8 @@ namespace Recoil {
 
             std::span resultSpan{result};
             size_t decodeStartSymbolId = splitId == 0 ? 0 : NInterleaved * (currentSplit.maxSymbolGroupId() + 1);
-            size_t decodeEndSymbolId = splitId == NSplits - 1 ? data.symbolCount
-                    : NInterleaved * (1 + data.splits[splitId + 1].maxSymbolGroupId());
+            size_t decodeEndSymbolId = splitId == metadata.splits.size() - 1 ? data.symbolCount
+                    : NInterleaved * (1 + metadata.splits[splitId + 1].maxSymbolGroupId());
             decoder.decode(cdfOffset, lutOffset, decodeEndSymbolId - decodeStartSymbolId, resultSpan.subspan(decodeStartSymbolId));
         }
 
@@ -66,7 +69,8 @@ namespace Recoil {
             // TODO
         }
     protected:
-        MyRansCodedDataWithSplits data;
+        MyRansCodedData data;
+        MyRansSplitsMetadata metadata;
         const MyCdfLutPool &pool;
     };
 }

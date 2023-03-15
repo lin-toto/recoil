@@ -15,7 +15,7 @@ namespace Recoil {
             uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits, uint8_t LutGranularity,
             size_t NInterleaved>
     class RansDecoder {
-        template<std::unsigned_integral, std::unsigned_integral, std::unsigned_integral T, std::unsigned_integral, uint8_t, T, uint8_t, uint8_t, size_t, size_t>
+        template<std::unsigned_integral, std::unsigned_integral, std::unsigned_integral T, std::unsigned_integral, uint8_t, T, uint8_t, uint8_t, size_t>
         friend class RansSplitDecoder;
     protected:
         using MyRans = Rans<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
@@ -43,8 +43,7 @@ namespace Recoil {
         }
 
         std::vector<ValueType> decode(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset, const size_t count) {
-            std::vector<ValueType> result;
-            result.resize(count);
+            std::vector<ValueType> result(count);
             decode(cdfOffset, lutOffset, count, std::span{result});
             return result;
         }
@@ -67,8 +66,7 @@ namespace Recoil {
         }
 
         std::vector<ValueType> decode(const std::span<CdfLutOffsetType> cdfOffsets, const std::span<CdfLutOffsetType> lutOffsets) {
-            std::vector<ValueType> result;
-            result.resize(cdfOffsets.size());
+            std::vector<ValueType> result(cdfOffsets.size());
             decode(cdfOffsets, lutOffsets, std::span{result});
             return result;
         }

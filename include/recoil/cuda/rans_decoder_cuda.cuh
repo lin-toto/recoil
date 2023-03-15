@@ -19,7 +19,7 @@ namespace Recoil {
             std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
             uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits, uint8_t LutGranularity>
     class RansDecoderCuda {
-        const int NInterleaved = 32; // FIXME
+        const int NInterleaved = 32;
 
         using MyRans = Rans<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
         using MyCdfLutPool = CdfLutPool<CdfType, ValueType, ProbBits, LutGranularity>;
@@ -68,7 +68,6 @@ namespace Recoil {
          */
         CUDA_DEVICE inline uint32_t renorm() {
             bool shouldRenorm = decoder.decShouldRenorm();
-            // TODO: fix ballot_sync flag to support other than 32 threads
             auto vote = __ballot_sync(0xffffffff, shouldRenorm);
 
             if (shouldRenorm) {

@@ -2,14 +2,12 @@
 #define RECOIL_RANS_CODED_DATA_H
 
 #include <vector>
-#include <array>
 #include <concepts>
 
 namespace Recoil {
     template<std::unsigned_integral CdfType, std::unsigned_integral ValueType,
             std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
-            uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits,
-            size_t NInterleaved>
+            uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits, size_t NInterleaved>
     struct RansCodedData {
         using MyRans = Rans<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
         size_t symbolCount;
@@ -23,10 +21,8 @@ namespace Recoil {
 
     template<std::unsigned_integral CdfType, std::unsigned_integral ValueType,
             std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
-            uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits,
-            size_t NInterleaved, size_t NSplits>
-    struct RansCodedDataWithSplits : public RansCodedData<
-            CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved> {
+            uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits, size_t NInterleaved>
+    struct RansSplitsMetadata {
         using MyRans = Rans<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
 
         SplitStrategy splitStrategy;
@@ -44,7 +40,7 @@ namespace Recoil {
          * For split 0, it always starts at position 0; intermediateRans == finalRans[0];
          * and startSymbolGroupIds is 0.
          */
-        std::array<Split, NSplits> splits;
+        std::vector<Split> splits;
     };
 }
 
