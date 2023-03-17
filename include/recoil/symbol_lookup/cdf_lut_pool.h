@@ -1,7 +1,7 @@
 #ifndef RECOIL_CDF_LUT_POOL_H
 #define RECOIL_CDF_LUT_POOL_H
 
-#include "recoil/cuda/macros.h"
+#include "recoil/lib/cuda/macros.h"
 #include "recoil/symbol_lookup/lut.h"
 
 #include <concepts>

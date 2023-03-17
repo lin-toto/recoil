@@ -1,7 +1,7 @@
 #ifndef RECOIL_SYMBOL_LOOKUP_H
 #define RECOIL_SYMBOL_LOOKUP_H
 
-#include "recoil/cuda/macros.h"
+#include "recoil/lib/cuda/macros.h"
 #include "recoil/symbol_lookup/lookup_mode.h"
 #include "recoil/symbol_lookup/lut.h"
 #include "recoil/symbol_lookup/cdf_lut_pool.h"

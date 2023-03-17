@@ -1,7 +1,7 @@
 #ifndef RECOIL_RANS_H
 #define RECOIL_RANS_H
 
-#include "recoil/cuda/macros.h"
+#include "recoil/lib/cuda/macros.h"
 #include <optional>
 #include <concepts>
 #include <cstdint>

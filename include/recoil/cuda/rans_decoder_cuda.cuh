@@ -1,25 +1,19 @@
 #ifndef RECOIL_RANS_DECODER_CUDA_CUH
 #define RECOIL_RANS_DECODER_CUDA_CUH
 
-#include "macros.h"
+#include "recoil/lib/cuda/macros.h"
+#include "recoil/lib/cuda/cuda_libs.cuh"
 #include "recoil/rans.h"
 #include <cuda/std/array>
 #include "device_launch_parameters.h"
-
-namespace {
-    CUDA_DEVICE inline unsigned getLaneMaskLe() {
-        unsigned mask;
-        asm("mov.u32 %0, %%lanemask_le;" : "=r"(mask));
-        return mask;
-    }
-}
+#include "rans_coded_data_cuda.h"
 
 namespace Recoil {
     template<std::unsigned_integral CdfType, std::unsigned_integral ValueType,
             std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
             uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits, uint8_t LutGranularity>
     class RansDecoderCuda {
-        const int NInterleaved = 32;
+        static const int NInterleaved = 32;
 
         using MyRans = Rans<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
         using MyCdfLutPool = CdfLutPool<CdfType, ValueType, ProbBits, LutGranularity>;
@@ -34,7 +28,7 @@ namespace Recoil {
                 symbolLookup(pool), decoder(rans) {}
 
         CUDA_DEVICE void decode(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset, const uint32_t count) {
-            const unsigned int decoderId = threadIdx.x % NInterleaved;
+            const auto decoderId = getDecoderId<NInterleaved>();
 
             for (uint32_t i = 0; i + NInterleaved <= count; i += NInterleaved) {
                 outputPtr[decoderId] = decodeOnce(cdfOffset, lutOffset);
@@ -43,6 +37,20 @@ namespace Recoil {
 
             if (decoderId < count % NInterleaved) {
                 outputPtr[decoderId] = decodeOnce(cdfOffset, lutOffset);
+                outputPtr += count % NInterleaved;
+            }
+        }
+
+        CUDA_DEVICE void decode(const CdfLutOffsetType allCdfOffsets[], const CdfLutOffsetType allLutOffsets[], const uint32_t count) {
+            const auto decoderId = getDecoderId<NInterleaved>();
+
+            uint32_t i = 0, cdfLutOffset = decoderId;
+            for (; i + NInterleaved <= count; i += NInterleaved, outputPtr += NInterleaved, cdfLutOffset += NInterleaved) {
+                outputPtr[decoderId] = decodeOnce(allCdfOffsets[cdfLutOffset], allLutOffsets[cdfLutOffset]);
+            }
+
+            if (decoderId < count % NInterleaved) {
+                outputPtr[decoderId] = decodeOnce(allCdfOffsets[cdfLutOffset], allLutOffsets[cdfLutOffset]);
                 outputPtr += count % NInterleaved;
             }
         }

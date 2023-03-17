@@ -41,20 +41,15 @@ namespace Recoil {
                     currentSplit.intermediateRans, pool);
 
             if (splitId != 0) {
-                // synchronize decoders
-                std::array<bool, NInterleaved> ransInitialized{};
-                bool ransAllInitialized = false;
+                std::array<CdfLutOffsetType, NInterleaved> cdfOffsets, lutOffsets;
+                cdfOffsets.fill(cdfOffset);
+                lutOffsets.fill(lutOffset);
 
+                std::array<bool, NInterleaved> ransInitializedState{};
+
+                bool ransAllInitialized = false;
                 for (size_t symbolGroupId = currentSplit.minSymbolGroupId(); !ransAllInitialized; symbolGroupId++) {
-                    ransAllInitialized = true;
-                    for (size_t decoderId = 0; decoderId < NInterleaved; decoderId++) {
-                        if (!ransInitialized[decoderId]) {
-                            if (currentSplit.startSymbolGroupIds[decoderId] == symbolGroupId) {
-                                decoder.renorm(decoder.rans[decoderId]);
-                                ransInitialized[decoderId] = true;
-                            } else ransAllInitialized = false;
-                        } else decoder.decodeSymbol(decoder.rans[decoderId], cdfOffset, lutOffset);
-                    }
+                    ransAllInitialized = syncRansOnce(decoder, currentSplit, symbolGroupId, ransInitializedState, cdfOffsets, lutOffsets);
                 }
             }
 
@@ -66,12 +61,56 @@ namespace Recoil {
         }
 
         void decodeSplit(size_t splitId, const std::span<CdfLutOffsetType> allCdfOffsets, const std::span<CdfLutOffsetType> allLutOffsets) {
-            // TODO
+            if (splitId >= metadata.splits.size()) [[unlikely]] throw std::runtime_error("Invalid splitId");
+            if (allCdfOffsets.size() != allLutOffsets.size()) [[unlikely]] throw std::runtime_error("CDF and LUT offset length mismatch");
+            if (allCdfOffsets.size() != data.symbolCount) [[unlikely]] throw std::runtime_error("Need the full CDF");
+
+            auto& currentSplit = metadata.splits[splitId];
+            MyRansDecoder decoder(
+                    std::span(data.bitstream.data(), currentSplit.cutPosition + 1),
+                    currentSplit.intermediateRans, pool);
+
+            if (splitId != 0) {
+                std::array<CdfLutOffsetType, NInterleaved> cdfOffsets, lutOffsets;
+                std::array<bool, NInterleaved> ransInitializedState{};
+
+                bool ransAllInitialized = false;
+                for (size_t symbolGroupId = currentSplit.minSymbolGroupId(); !ransAllInitialized; symbolGroupId++) {
+                    size_t cdfLutOffset = NInterleaved * (symbolGroupId - currentSplit.minSymbolGroupId());
+                    ransAllInitialized = syncRansOnce(decoder, currentSplit, symbolGroupId, ransInitializedState,
+                                                      allCdfOffsets.subspan(cdfLutOffset),
+                                                      allLutOffsets.subspan(cdfLutOffset));
+                }
+            }
+
+            std::span resultSpan{result};
+            size_t decodeStartSymbolId = splitId == 0 ? 0 : NInterleaved * (currentSplit.maxSymbolGroupId() + 1);
+            size_t decodeEndSymbolId = splitId == metadata.splits.size() - 1 ? data.symbolCount
+                                                                             : NInterleaved * (1 + metadata.splits[splitId + 1].maxSymbolGroupId());
+            size_t cdfLutOffset = NInterleaved * (currentSplit.maxSymbolGroupId() + 1 - currentSplit.minSymbolGroupId());
+            decoder.decode(allCdfOffsets.subspan(cdfLutOffset), allLutOffsets.subspan(cdfLutOffset),
+                           decodeEndSymbolId - decodeStartSymbolId, resultSpan.subspan(decodeStartSymbolId));
         }
     protected:
         MyRansCodedData data;
         MyRansSplitsMetadata metadata;
         const MyCdfLutPool &pool;
+
+        inline bool syncRansOnce(MyRansDecoder& decoder, const MyRansSplitsMetadata::Split& currentSplit,
+                                 const size_t symbolGroupId, std::array<bool, NInterleaved>& ransInitializedState,
+                                 const std::span<CdfLutOffsetType> cdfOffsets, const std::span<CdfLutOffsetType> lutOffsets) {
+            bool ransAllInitialized = true;
+            for (size_t decoderId = 0; decoderId < NInterleaved; decoderId++) {
+                if (!ransInitializedState[decoderId]) {
+                    if (currentSplit.startSymbolGroupIds[decoderId] == symbolGroupId) {
+                        decoder.renorm(decoder.rans[decoderId]);
+                        ransInitializedState[decoderId] = true;
+                    } else ransAllInitialized = false;
+                } else decoder.decodeSymbol(decoder.rans[decoderId], cdfOffsets[decoderId], lutOffsets[decoderId]);
+            }
+
+            return ransAllInitialized;
+        }
     };
 }
 

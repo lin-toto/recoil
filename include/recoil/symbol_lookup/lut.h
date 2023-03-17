@@ -2,7 +2,7 @@
 #define RECOIL_LUT_H
 
 #include "lookup_mode.h"
-#include "recoil/cuda/macros.h"
+#include "recoil/lib/cuda/macros.h"
 
 #include <concepts>
 #include <cstdint>

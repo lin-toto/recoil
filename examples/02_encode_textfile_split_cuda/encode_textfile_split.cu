@@ -44,6 +44,7 @@ int main(int argc, const char **argv) {
 
     RansSplitDecoderCuda splitDecoderCuda(result.first, result.second, pool);
     auto decoded = splitDecoderCuda.decodeAll(cdfOffset, lutOffset);
+    //for (auto s:decoded) std::cout<<s;
 
     auto elapsed = splitDecoderCuda.getLastDuration();
     std::cout << "Time: " << elapsed << "us" << std::endl;
