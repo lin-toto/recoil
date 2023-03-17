@@ -23,12 +23,18 @@ namespace Recoil {
                 } else {
                     return getSymbolInfo_lutOnly(lutOffsets, probabilities);
                 }
+            } else {
+                SimdDataType startPositions = SimdDataTypeWrapper::setAll(0);
+                if constexpr (MixedGranularity<LutGranularity>) {
+                    startPositions = valueOnlyLutLookup(lutOffsets, probabilities);
+                }
+                return getSymbolInfo_mixed(cdfOffsets, startPositions, probabilities);
             }
-
-            throw std::runtime_error("Not implemented");
         }
 
     protected:
+        virtual SimdDataType valueOnlyLutLookup(SimdDataType lutOffsets, SimdDataType probabilities) const = 0;
+        virtual SymbolInfo getSymbolInfo_mixed(SimdDataType cdfOffsets, SimdDataType startPositions, SimdDataType probabilities) const = 0;
         virtual SymbolInfo getSymbolInfo_lutOnly(SimdDataType lutOffsets, SimdDataType probabilities) const = 0;
         virtual SymbolInfo getSymbolInfo_lutOnly_packed(SimdDataType lutOffsets, SimdDataType probabilities) const = 0;
     };

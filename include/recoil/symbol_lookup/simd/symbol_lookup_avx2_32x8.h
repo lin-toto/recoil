@@ -12,7 +12,32 @@ namespace Recoil {
     public:
         using MyBase::MyBase;
     protected:
-        inline typename MyBase::SymbolInfo getSymbolInfo_lutOnly(u32x8 lutOffsets, u32x8 probabilities) const override {
+        [[nodiscard]] inline u32x8 valueOnlyLutLookup(const u32x8 lutOffsets, const u32x8 probabilities) const override {
+            const u32x8 symbolMask = _mm256_set1_epi32((1 << (8 * sizeof(ValueType))) - 1);
+
+            u32x8 offsets = _mm256_add_epi32(lutOffsets, probabilities);
+            u32x8 rawValues = _mm256_i32gather_epi32(reinterpret_cast<const int*>(this->lutPool), offsets, sizeof(MyLutItem));
+            return _mm256_and_si256(rawValues, symbolMask);
+        }
+
+        [[nodiscard]] inline typename MyBase::SymbolInfo getSymbolInfo_mixed(
+                const u32x8 cdfOffsets, const u32x8 startPositions, const u32x8 probabilities) const override {
+            typename MyBase::SymbolInfo symbolInfo;
+
+            getOneSymbolInfo_mixed(symbolInfo, 0, cdfOffsets, startPositions, probabilities);
+            getOneSymbolInfo_mixed(symbolInfo, 1, cdfOffsets, startPositions, probabilities);
+            getOneSymbolInfo_mixed(symbolInfo, 2, cdfOffsets, startPositions, probabilities);
+            getOneSymbolInfo_mixed(symbolInfo, 3, cdfOffsets, startPositions, probabilities);
+            getOneSymbolInfo_mixed(symbolInfo, 4, cdfOffsets, startPositions, probabilities);
+            getOneSymbolInfo_mixed(symbolInfo, 5, cdfOffsets, startPositions, probabilities);
+            getOneSymbolInfo_mixed(symbolInfo, 6, cdfOffsets, startPositions, probabilities);
+            getOneSymbolInfo_mixed(symbolInfo, 7, cdfOffsets, startPositions, probabilities);
+
+            return symbolInfo;
+        }
+
+        [[nodiscard]] inline typename MyBase::SymbolInfo getSymbolInfo_lutOnly(
+                const u32x8 lutOffsets, const u32x8 probabilities) const override {
             const u32x8 symbolMask = _mm256_set1_epi32((1 << (8 * sizeof(ValueType))) - 1);
             const u32x8 cdfMask = _mm256_set1_epi32(0xffff);
 
@@ -29,7 +54,8 @@ namespace Recoil {
             return { symbols, starts, frequencies };
         }
 
-        inline typename MyBase::SymbolInfo getSymbolInfo_lutOnly_packed(u32x8 lutOffsets, u32x8 probabilities) const override {
+        [[nodiscard]]  inline typename MyBase::SymbolInfo getSymbolInfo_lutOnly_packed(
+                const u32x8 lutOffsets, const u32x8 probabilities) const override {
             const u32x8 symbolMask = _mm256_set1_epi32(0xff);
             const u32x8 cdfMask = _mm256_set1_epi32(0x0fff);
 
@@ -41,6 +67,18 @@ namespace Recoil {
             u32x8 frequencies = _mm256_and_si256(_mm256_srli_epi32(lutReadout, 20), cdfMask);
 
             return { symbols, starts, frequencies };
+        }
+    private:
+        inline void getOneSymbolInfo_mixed(
+                typename MyBase::SymbolInfo& symbolInfo, const int i,
+                const u32x8 cdfOffsets, const u32x8 startPositions, const u32x8 probabilities) const {
+            auto [value, start, frequency] = this->linearSearch(
+                    _mm256_extract_epi32(cdfOffsets, i),
+                    _mm256_extract_epi32(probabilities, i),
+                    _mm256_extract_epi32(startPositions, i));
+            symbolInfo.value = _mm256_insert_epi32(symbolInfo.value, value, i);
+            symbolInfo.start = _mm256_insert_epi32(symbolInfo.start, start, i);
+            symbolInfo.frequency = _mm256_insert_epi32(symbolInfo.frequency, frequency, i);
         }
     };
 }
