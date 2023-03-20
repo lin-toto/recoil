@@ -72,6 +72,7 @@ namespace Recoil {
 
             auto stateFrontIt = encoder.intermediateStates.begin();
             auto stateRearIt = encoder.intermediateStates.begin();
+            auto currentSplitId = nSplits - 1;
             for (bool initial = true;
                  stateRearIt != encoder.intermediateStates.end(); stateRearIt++) {
                 splitZoneEncoderCount[stateRearIt->encoderId()]++;
@@ -100,13 +101,17 @@ namespace Recoil {
                     auto splitZoneSymbolCount = NInterleaved * (stateFrontIt->symbolGroupId() + 1 - stateRearIt->symbolGroupId());
                     auto cutPosition = std::distance(encoder.intermediateStates.begin(), stateRearIt);
 
-                    for (auto splitId = 1; splitId < nSplits; splitId++) {
-                        int64_t targetSymbolId = targetSymbolCountPerSplit * splitId;
-                        auto heuristic = std::abs(static_cast<int64_t>(stateRearIt->symbolId) - targetSymbolId) + std::abs(static_cast<int64_t>(stateRearIt->symbolId + splitZoneSymbolCount) - targetSymbolId);
-                        if (heuristic < bestSplitPoints[splitId].second)
-                            bestSplitPoints[splitId] = std::make_pair(cutPosition, heuristic);
-                    }
+                    int64_t targetSymbolId = targetSymbolCountPerSplit * currentSplitId;
+                    auto heuristic = std::abs(static_cast<int64_t>(stateRearIt->symbolId) - targetSymbolId) + std::abs(static_cast<int64_t>(stateRearIt->symbolId + splitZoneSymbolCount) - targetSymbolId);
+                    if (heuristic < bestSplitPoints[currentSplitId].second)
+                        bestSplitPoints[currentSplitId] = std::make_pair(cutPosition, heuristic);
 
+                    if (currentSplitId > 1) {
+                        int64_t nextTargetSymbolId = targetSymbolCountPerSplit * (currentSplitId - 1);
+                        if (std::abs(static_cast<int64_t>(stateRearIt->symbolId) - targetSymbolId) > std::abs(static_cast<int64_t>(stateRearIt->symbolId) - nextTargetSymbolId)) {
+                            currentSplitId--;
+                        }
+                    }
                 }
             }
 
