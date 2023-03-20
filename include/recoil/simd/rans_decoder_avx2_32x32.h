@@ -14,52 +14,41 @@ namespace Recoil {
         const size_t NInterleaved = 32;
 
     protected:
-        size_t decodeAligned(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset,
-                             const size_t count, const std::span<ValueType> output) override {
-            u32x8 ransSimds[4];
-            this->createRansSimds(ransSimds);
+        void decodeOnceAligned(const std::span<CdfLutOffsetType> cdfOffsets, const std::span<CdfLutOffsetType> lutOffsets,
+                               u32x8 ransSimds[], const std::span<ValueType> output) override {
+            auto prob0 = this->getProbabilities(ransSimds[0]);
+            auto prob1 = this->getProbabilities(ransSimds[1]);
+            auto prob2 = this->getProbabilities(ransSimds[2]);
+            auto prob3 = this->getProbabilities(ransSimds[3]);
 
-            const u32x8 cdfOffsets = u32x8_wrapper::setAll(cdfOffset);
-            const u32x8 lutOffsets = u32x8_wrapper::setAll(lutOffset);
+            auto cdfOffsetsSimd = u32x8_wrapper::toSimd(cdfOffsets.data());
+            auto lutOffsetsSimd = u32x8_wrapper::toSimd(lutOffsets.data());
+            auto [sym0, start0, freq0] = this->symbolLookupAvx.getSymbolInfo(cdfOffsetsSimd, lutOffsetsSimd, prob0);
 
-            u32x8 rans0 = ransSimds[0];
-            u32x8 rans1 = ransSimds[1];
-            u32x8 rans2 = ransSimds[2];
-            u32x8 rans3 = ransSimds[3];
+            cdfOffsetsSimd = u32x8_wrapper::toSimd(cdfOffsets.data() + 8);
+            lutOffsetsSimd = u32x8_wrapper::toSimd(lutOffsets.data() + 8);
+            auto [sym1, start1, freq1] = this->symbolLookupAvx.getSymbolInfo(cdfOffsetsSimd, lutOffsetsSimd, prob1);
 
-            auto completedCount = 0;
-            for (; completedCount + NInterleaved <= count; completedCount += NInterleaved) {
-                auto prob0 = this->getProbabilities(rans0);
-                auto prob1 = this->getProbabilities(rans1);
-                auto prob2 = this->getProbabilities(rans2);
-                auto prob3 = this->getProbabilities(rans3);
+            cdfOffsetsSimd = u32x8_wrapper::toSimd(cdfOffsets.data() + 16);
+            lutOffsetsSimd = u32x8_wrapper::toSimd(lutOffsets.data() + 16);
+            auto [sym2, start2, freq2] = this->symbolLookupAvx.getSymbolInfo(cdfOffsetsSimd, lutOffsetsSimd, prob2);
 
-                auto [sym0, start0, freq0] = this->symbolLookupAvx.getSymbolInfo(cdfOffsets, lutOffsets, prob0);
-                auto [sym1, start1, freq1] = this->symbolLookupAvx.getSymbolInfo(cdfOffsets, lutOffsets, prob1);
-                auto [sym2, start2, freq2] = this->symbolLookupAvx.getSymbolInfo(cdfOffsets, lutOffsets, prob2);
-                auto [sym3, start3, freq3] = this->symbolLookupAvx.getSymbolInfo(cdfOffsets, lutOffsets, prob3);
+            cdfOffsetsSimd = u32x8_wrapper::toSimd(cdfOffsets.data() + 24);
+            lutOffsetsSimd = u32x8_wrapper::toSimd(lutOffsets.data() + 24);
+            auto [sym3, start3, freq3] = this->symbolLookupAvx.getSymbolInfo(cdfOffsetsSimd, lutOffsetsSimd, prob3);
 
-                this->advanceSymbol(rans0, prob0, start0, freq0);
-                this->advanceSymbol(rans1, prob1, start1, freq1);
-                this->advanceSymbol(rans2, prob2, start2, freq2);
-                this->advanceSymbol(rans3, prob3, start3, freq3);
+            this->advanceSymbol(ransSimds[0], prob0, start0, freq0);
+            this->advanceSymbol(ransSimds[1], prob1, start1, freq1);
+            this->advanceSymbol(ransSimds[2], prob2, start2, freq2);
+            this->advanceSymbol(ransSimds[3], prob3, start3, freq3);
 
-                this->renormSimd(rans0);
-                this->renormSimd(rans1);
-                this->renormSimd(rans2);
-                this->renormSimd(rans3);
+            this->renormSimd(ransSimds[0]);
+            this->renormSimd(ransSimds[1]);
+            this->renormSimd(ransSimds[2]);
+            this->renormSimd(ransSimds[3]);
 
-                this->writeResult(sym0, sym1, output.data() + completedCount);
-                this->writeResult(sym2, sym3, output.data() + completedCount + 16);
-            }
-
-            ransSimds[0] = rans0;
-            ransSimds[1] = rans1;
-            ransSimds[2] = rans2;
-            ransSimds[3] = rans3;
-            this->writeBackRansSimds(ransSimds);
-
-            return completedCount;
+            this->writeResult(sym0, sym1, output.data());
+            this->writeResult(sym2, sym3, output.data() + 16);
         }
     };
 

@@ -48,9 +48,20 @@ namespace Recoil {
                 if (completedCount == count) [[unlikely]] return;
             }
 
-            auto alignedCount = (count - completedCount) / NInterleaved * NInterleaved;
-            decodeAligned(cdfOffset, lutOffset, alignedCount, output.subspan(completedCount));
-            completedCount += alignedCount;
+            {
+                // Step 2: decode aligned parts
+                std::array<CdfLutOffsetType, NInterleaved> cdfOffsets, lutOffsets;
+                cdfOffsets.fill(cdfOffset);
+                lutOffsets.fill(lutOffset);
+
+                SimdDataType ransSimds[RansStepCount];
+                createRansSimds(ransSimds);
+                for (; completedCount + NInterleaved <= count; completedCount += NInterleaved) {
+                    decodeOnceAligned(cdfOffsets, lutOffsets,
+                                      ransSimds, output.subspan(completedCount));
+                }
+                writeBackRansSimds(ransSimds);
+            }
 
             {
                 // Step 3: decode final unaligned parts
@@ -59,10 +70,53 @@ namespace Recoil {
                 }
             }
         }
+
+        void decode(const std::span<CdfLutOffsetType> cdfOffsets, const std::span<CdfLutOffsetType> lutOffsets, const std::span<ValueType> output) override {
+            if (cdfOffsets.size() != lutOffsets.size()) [[unlikely]] throw std::runtime_error("CDF and LUT offset length mismatch");
+            if (output.size() < cdfOffsets.size()) [[unlikely]] throw std::runtime_error("Not enough buffer space");
+            if (!isAligned(cdfOffsets.data(), sizeof(SimdDataType)) || !isAligned(lutOffsets.data(), sizeof(SimdDataType)))
+                throw std::runtime_error("Unaligned CDF or LUT offsets");
+            size_t completedCount = 0, count = cdfOffsets.size();
+
+            {
+                // Step 1: decode initial unaligned parts so that ransIt is now at beginning
+                auto unalignedCount = std::min(static_cast<size_t>(this->rans.end() - this->ransIt), count);
+                if (unalignedCount != NInterleaved) { // If equal to NInterleaved, it is at beginning; no action needed
+                    MyRansDecoder::decode(cdfOffsets.subspan(unalignedCount), lutOffsets.subspan(unalignedCount), output);
+                    completedCount += unalignedCount;
+                }
+
+                if (completedCount == count) [[unlikely]] return;
+            }
+
+            {
+                // Step 2: decode aligned parts
+                SimdDataType ransSimds[RansStepCount];
+                createRansSimds(ransSimds);
+                for (; completedCount + NInterleaved <= count; completedCount += NInterleaved) {
+                    decodeOnceAligned(cdfOffsets.subspan(completedCount),
+                                      lutOffsets.subspan(completedCount),
+                                      ransSimds, output.subspan(completedCount));
+                }
+                writeBackRansSimds(ransSimds);
+            }
+
+            {
+                // Step 3: decode final unaligned parts
+                if (completedCount != count) {
+                    MyRansDecoder::decode(cdfOffsets.subspan(completedCount), lutOffsets.subspan(completedCount), output.subspan(completedCount));
+                }
+            }
+
+        }
     protected:
         SymbolLookupAVX symbolLookupAvx;
 
-        inline void createRansSimds(SimdDataType* ransSimds) {
+        static inline bool isAligned(void *ptr, size_t align) {
+            return !(reinterpret_cast<size_t>(ptr) % align);
+        }
+
+        inline void createRansSimds(SimdDataType ransSimds[]) {
             for (auto b = 0; b < RansStepCount; b++) {
                 alignas(sizeof(SimdDataType)) SimdArrayType rans{};
                 for (auto i = 0; i < RansBatchSize; i++) {
@@ -70,46 +124,36 @@ namespace Recoil {
                 }
                 ransSimds[b] = SimdDataTypeWrapper::toSimd(rans);
             }
-        };
+        }
 
-        inline void writeBackRansSimds(SimdDataType *ransSimds) {
+        inline void writeBackRansSimds(SimdDataType ransSimds[]) {
             for (auto b = 0; b < RansStepCount; b++) {
                 auto rans = SimdDataTypeWrapper::fromSimd(ransSimds[b]);
                 for (auto i = 0; i < RansBatchSize; i++) {
                     this->rans[b * RansBatchSize + i].state = rans[i];
                 }
             }
-        };
+        }
 
-        virtual size_t decodeAligned(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset,
-                                     const size_t count, const std::span<ValueType> output) {
-            SimdDataType ransSimds[RansStepCount];
-            createRansSimds(ransSimds);
+        virtual void decodeOnceAligned(const std::span<CdfLutOffsetType> cdfOffsets, const std::span<CdfLutOffsetType> lutOffsets,
+                                       SimdDataType ransSimds[], const std::span<ValueType> output) {
+            for (auto b = 0; b < RansStepCount; b++) {
+                auto cdfOffsetsSimd = SimdDataTypeWrapper::toSimd(cdfOffsets.subspan(b * RansBatchSize).data());
+                auto lutOffsetsSimd = SimdDataTypeWrapper::toSimd(lutOffsets.subspan(b * RansBatchSize).data());
 
-            const SimdDataType cdfOffsets = SimdDataTypeWrapper::setAll(cdfOffset);
-            const SimdDataType lutOffsets = SimdDataTypeWrapper::setAll(lutOffset);
+                auto& ransSimd = ransSimds[b];
+                auto probabilitiesSimd = getProbabilities(ransSimd);
 
-            auto completedCount = 0;
-            for (; completedCount + NInterleaved <= count; completedCount += NInterleaved) {
-                for (auto b = 0; b < RansStepCount; b++) {
-                    auto& ransSimd = ransSimds[b];
-                    auto probabilitiesSimd = getProbabilities(ransSimd);
+                auto [symbolsSimd, startsSimd, frequenciesSimd] = symbolLookupAvx.getSymbolInfo(
+                        cdfOffsetsSimd, lutOffsetsSimd, probabilitiesSimd);
 
-                    auto [symbolsSimd, startsSimd, frequenciesSimd] = symbolLookupAvx.getSymbolInfo(
-                            cdfOffsets, lutOffsets, probabilitiesSimd);
+                // TODO: if probability is a bypass sentinel, handle as bypass symbol
 
-                    // TODO: if probability is a bypass sentinel, handle as bypass symbol
+                advanceSymbol(ransSimd, probabilitiesSimd, startsSimd, frequenciesSimd);
+                renormSimd(ransSimd);
 
-                    advanceSymbol(ransSimd, probabilitiesSimd, startsSimd, frequenciesSimd);
-                    renormSimd(ransSimd);
-
-                    writeResult(symbolsSimd, output.data() + completedCount + b * RansBatchSize);
-                }
+                writeResult(symbolsSimd, output.data() + b * RansBatchSize);
             }
-
-            writeBackRansSimds(ransSimds);
-
-            return completedCount;
         }
 
         virtual void writeResult(const SimdDataType symbolsSimd, ValueType *ptr) {
