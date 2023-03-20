@@ -1,19 +1,13 @@
 #ifndef RECOIL_RANS_SPLIT_ENCODER_H
 #define RECOIL_RANS_SPLIT_ENCODER_H
 
+#include "recoil/lib/div.h"
 #include "recoil/rans.h"
 #include "recoil/rans_coded_data.h"
 #include "recoil/rans_encoder.h"
 #include <vector>
 #include <numeric>
 #include <algorithm>
-
-namespace {
-    template<class T>
-    T saveDiv(T a, T b) {
-        return (a + b - 1) / b;
-    }
-}
 
 namespace Recoil {
     template<std::unsigned_integral CdfType, std::unsigned_integral ValueType,

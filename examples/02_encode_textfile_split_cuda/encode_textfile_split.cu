@@ -4,6 +4,7 @@
 #include "recoil/symbol_lookup/cdf_lut_pool.h"
 #include "recoil/split/rans_split_encoder.h"
 #include "recoil/cuda/rans_split_decoder_cuda.cuh"
+#include "recoil/split/metadata/splits_metadata_encoder.h"
 
 #include <iostream>
 #include <vector>
@@ -41,6 +42,9 @@ int main(int argc, const char **argv) {
     auto symbols = stringToSymbols<ValueType>(text);
     enc.getEncoder().buffer(symbols, cdfOffset);
     auto result = enc.flushSplits(nSplit);
+
+    SplitsMetadataEncoder metadataEnc(result.first, result.second);
+    metadataEnc.combine();
 
     RansSplitDecoderCuda splitDecoderCuda(result.first, result.second, pool);
     auto decoded = splitDecoderCuda.decodeAll(cdfOffset, lutOffset);
