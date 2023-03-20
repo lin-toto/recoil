@@ -24,22 +24,22 @@ namespace Recoil {
                 const u32x16 cdfOffsets, const u32x16 startPositions, const u32x16 probabilities) const override {
             typename MyBase::SymbolInfo symbolInfo;
 
-            getOneSymbolInfo_mixed(symbolInfo, 0, cdfOffsets, startPositions, probabilities);
-            getOneSymbolInfo_mixed(symbolInfo, 1, cdfOffsets, startPositions, probabilities);
-            getOneSymbolInfo_mixed(symbolInfo, 2, cdfOffsets, startPositions, probabilities);
-            getOneSymbolInfo_mixed(symbolInfo, 3, cdfOffsets, startPositions, probabilities);
-            getOneSymbolInfo_mixed(symbolInfo, 4, cdfOffsets, startPositions, probabilities);
-            getOneSymbolInfo_mixed(symbolInfo, 5, cdfOffsets, startPositions, probabilities);
-            getOneSymbolInfo_mixed(symbolInfo, 6, cdfOffsets, startPositions, probabilities);
-            getOneSymbolInfo_mixed(symbolInfo, 7, cdfOffsets, startPositions, probabilities);
-            getOneSymbolInfo_mixed(symbolInfo, 8, cdfOffsets, startPositions, probabilities);
-            getOneSymbolInfo_mixed(symbolInfo, 9, cdfOffsets, startPositions, probabilities);
-            getOneSymbolInfo_mixed(symbolInfo, 10, cdfOffsets, startPositions, probabilities);
-            getOneSymbolInfo_mixed(symbolInfo, 11, cdfOffsets, startPositions, probabilities);
-            getOneSymbolInfo_mixed(symbolInfo, 12, cdfOffsets, startPositions, probabilities);
-            getOneSymbolInfo_mixed(symbolInfo, 13, cdfOffsets, startPositions, probabilities);
-            getOneSymbolInfo_mixed(symbolInfo, 14, cdfOffsets, startPositions, probabilities);
-            getOneSymbolInfo_mixed(symbolInfo, 15, cdfOffsets, startPositions, probabilities);
+            getOneSymbolInfo_mixed<0>(symbolInfo, cdfOffsets, startPositions, probabilities);
+            getOneSymbolInfo_mixed<1>(symbolInfo, cdfOffsets, startPositions, probabilities);
+            getOneSymbolInfo_mixed<2>(symbolInfo, cdfOffsets, startPositions, probabilities);
+            getOneSymbolInfo_mixed<3>(symbolInfo, cdfOffsets, startPositions, probabilities);
+            getOneSymbolInfo_mixed<4>(symbolInfo, cdfOffsets, startPositions, probabilities);
+            getOneSymbolInfo_mixed<5>(symbolInfo, cdfOffsets, startPositions, probabilities);
+            getOneSymbolInfo_mixed<6>(symbolInfo, cdfOffsets, startPositions, probabilities);
+            getOneSymbolInfo_mixed<7>(symbolInfo, cdfOffsets, startPositions, probabilities);
+            getOneSymbolInfo_mixed<8>(symbolInfo, cdfOffsets, startPositions, probabilities);
+            getOneSymbolInfo_mixed<9>(symbolInfo, cdfOffsets, startPositions, probabilities);
+            getOneSymbolInfo_mixed<10>(symbolInfo, cdfOffsets, startPositions, probabilities);
+            getOneSymbolInfo_mixed<11>(symbolInfo, cdfOffsets, startPositions, probabilities);
+            getOneSymbolInfo_mixed<12>(symbolInfo, cdfOffsets, startPositions, probabilities);
+            getOneSymbolInfo_mixed<13>(symbolInfo, cdfOffsets, startPositions, probabilities);
+            getOneSymbolInfo_mixed<14>(symbolInfo, cdfOffsets, startPositions, probabilities);
+            getOneSymbolInfo_mixed<15>(symbolInfo, cdfOffsets, startPositions, probabilities);
 
             return symbolInfo;
         }
@@ -77,8 +77,9 @@ namespace Recoil {
             return { symbols, starts, frequencies };
         }
     private:
+        template<const int i>
         inline void getOneSymbolInfo_mixed(
-                typename MyBase::SymbolInfo& symbolInfo, const int i,
+                typename MyBase::SymbolInfo& symbolInfo,
                 const u32x16 cdfOffsets, const u32x16 startPositions, const u32x16 probabilities) const {
             auto [value, start, frequency] = this->linearSearch(
                     _mm512_extract_epi32(cdfOffsets, i),
