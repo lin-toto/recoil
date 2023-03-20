@@ -6,8 +6,9 @@
 #include "recoil/rans_encoder.h"
 #include "recoil/rans_decoder.h"
 #include "recoil/simd/rans_decoder_avx2_32x8n.h"
-#include "recoil/simd/rans_decoder_avx2_32x16.h"
 #include "recoil/simd/rans_decoder_avx2_32x32.h"
+//#include "recoil/simd/rans_decoder_avx512_32x16n.h"
+//#include "recoil/simd/rans_decoder_avx512_32x32.h"
 
 #include <iostream>
 #include <vector>

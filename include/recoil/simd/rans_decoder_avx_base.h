@@ -50,7 +50,7 @@ namespace Recoil {
 
             {
                 // Step 2: decode aligned parts
-                std::array<CdfLutOffsetType, NInterleaved> cdfOffsets, lutOffsets;
+                alignas(sizeof(SimdDataType)) std::array<CdfLutOffsetType, NInterleaved> cdfOffsets, lutOffsets;
                 cdfOffsets.fill(cdfOffset);
                 lutOffsets.fill(lutOffset);
 
