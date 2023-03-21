@@ -14,7 +14,7 @@ namespace Recoil {
     template<std::unsigned_integral BufferDataType>
     class BitsReader {
     public:
-        explicit BitsReader(std::span<BufferDataType> buf): buf(buf), it(buf.cbegin()) {}
+        explicit BitsReader(std::span<const BufferDataType> buf): buf(buf), it(buf.begin()), curr(*it) {}
 
         template<std::integral ReadDataType>
         ReadDataType read(uint8_t lengthGranularity = 1) {
@@ -25,15 +25,11 @@ namespace Recoil {
         template<std::integral ReadDataType>
         uint8_t readLength(uint8_t lengthGranularity = 1) {
             constexpr auto sizeBits = ceillog2(sizeof(ReadDataType) * 8);
-            return (read<uint8_t>(sizeBits - lengthGranularity + 1) + 1) << (lengthGranularity - 1);
+            return (readData<uint8_t>(sizeBits - lengthGranularity + 1) + 1) << (lengthGranularity - 1);
         }
 
-        template<std::integral ReadDataType>
+        template<std::unsigned_integral ReadDataType>
         ReadDataType readData(uint8_t actualLength) {
-            if (currentBitPosition == sizeof(BufferDataType) * 8) {
-                curr = *it;
-            }
-
             ReadDataType data = 0;
             while (actualLength > 0) {
                 uint8_t len = std::min(actualLength, currentBitPosition);
@@ -54,10 +50,16 @@ namespace Recoil {
             return data;
         }
 
-        [[nodiscard]] inline size_t currentIteratorPosition() const { return it - buf.cbegin(); }
+        template<std::signed_integral ReadDataType>
+        ReadDataType readData(uint8_t actualLength) {
+            auto signBit = readData<uint8_t>(1) == 0 ? 1 : -1;
+            return signBit * readData<std::make_unsigned_t<ReadDataType>>(actualLength);
+        }
+
+        [[nodiscard]] inline size_t currentIteratorPosition() const { return it - buf.begin(); }
     private:
-        const std::vector<BufferDataType>& buf;
-        typename std::vector<BufferDataType>::const_iterator it;
+        std::span<const BufferDataType> buf;
+        typename std::span<const BufferDataType>::iterator it;
         uint8_t currentBitPosition = sizeof(BufferDataType) * 8;
         BufferDataType curr;
     };

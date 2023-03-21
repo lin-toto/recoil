@@ -48,10 +48,13 @@ int main(int argc, const char **argv) {
     enc.getEncoder().buffer(symbols, cdfOffset);
     auto result = enc.flushSplits(nSplit);
 
-    //SplitsMetadataEncoder metadataEnc(result.first, result.second);
-    //metadataEnc.combine();
+    SplitsMetadataEncoder metadataEnc(result.first, result.second);
+    auto bitstream = metadataEnc.combine();
 
-    RansSplitDecoder dec(result.first, result.second, pool);
+    SplitsMetadataDecoder<uint16_t, uint8_t, uint32_t, uint16_t, ProbBits, 1u << 16, 16, NInterleaved> metadataDec(bitstream);
+    auto result2 = metadataDec.decode();
+
+    RansSplitDecoder dec(result2.first, result2.second, pool);
 
     Latch latch;
     std::vector<std::future<void>> tasks;

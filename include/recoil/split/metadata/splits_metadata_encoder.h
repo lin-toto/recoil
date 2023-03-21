@@ -40,9 +40,7 @@ namespace Recoil {
                     auto &split = metadata.splits[splitId];
                     diffCutPositions.push_back(
                             split.cutPosition - (nSplits - splitId) * saveDiv(data.getRealBitstream().size(), nSplits));
-                    diffSymbolGroupIds.push_back(split.minSymbolGroupId() - (nSplits - splitId) *
-                                                                            saveDiv(saveDiv(data.symbolCount,
-                                                                                            NInterleaved), nSplits));
+                    diffSymbolGroupIds.push_back(split.minSymbolGroupId() - splitId * saveDiv(saveDiv(data.symbolCount,NInterleaved), nSplits));
                 }
                 auto cutPositionsLength = getMaxActualLength(diffCutPositions);
                 auto symbolGroupIdsLength = getMaxActualLength(diffSymbolGroupIds);
@@ -63,7 +61,7 @@ namespace Recoil {
                     }
 
                     auto symbolGroupIdsInSplitLength = getMaxActualLength(diffSymbolGroupIdsInSplit);
-                    writer.template writeLength<int>(symbolGroupIdsInSplitLength);
+                    writer.template writeLength<uint16_t>(symbolGroupIdsInSplitLength);
                     for (auto diffSymbolGroupIdInSplit: diffSymbolGroupIdsInSplit)
                         writer.writeData(diffSymbolGroupIdInSplit, symbolGroupIdsInSplitLength);
                 }

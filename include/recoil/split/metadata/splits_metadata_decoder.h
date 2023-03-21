@@ -26,8 +26,11 @@ namespace Recoil {
             MyRansSplitsMetadata metadata;
             std::vector<int> diffCutPositions(1), minSymbolGroupIds(1);
 
-            auto nSplits = reader.template read<uint16_t>();
+            size_t nSplits = reader.template read<uint16_t>();
             data.symbolCount = reader.template read<uint32_t>();
+
+            metadata.splits.resize(nSplits);
+            metadata.splits[0].startSymbolGroupIds.fill(0);
 
             if (nSplits > 1) {
                 auto cutPositionsLength = reader.template readLength<int>();
@@ -35,9 +38,8 @@ namespace Recoil {
                     diffCutPositions.push_back(reader.template readData<int>(cutPositionsLength));
                 auto symbolGroupIdsLength = reader.template readLength<int>();
                 for (auto splitId = 1; splitId < nSplits; splitId++)
-                    minSymbolGroupIds.push_back(reader.template readData<>(symbolGroupIdsLength) +
-                                                (nSplits - splitId) *
-                                                saveDiv(saveDiv(data.symbolCount, NInterleaved), nSplits));
+                    minSymbolGroupIds.push_back(reader.template readData<int>(symbolGroupIdsLength) +
+                                                splitId * saveDiv(saveDiv(data.symbolCount, NInterleaved), nSplits));
 
                 for (auto splitId = 1; splitId < nSplits; splitId++) {
                     auto symbolGroupIdsInSplitLength = reader.template readLength<uint16_t>();
@@ -49,16 +51,14 @@ namespace Recoil {
 
             for (auto &rans : data.finalRans)
                 rans.state = reader.template readData<RansStateType>(sizeof(RansStateType) * 8);
-
-            auto it = reader.currentIteratorPosition() + 1;
-            metadata.splits.resize(nSplits);
             metadata.splits[0].intermediateRans = data.finalRans;
-            metadata.splits[0].startSymbolGroupIds.fill(0);
+
+            auto it = bitstream.begin() + reader.currentIteratorPosition() + 1;
 
             for (auto splitId = 1; splitId < nSplits; splitId++) {
                 auto &split = metadata.splits[splitId];
                 for (auto &rans : split.intermediateRans) {
-                    rans = *it;
+                    rans.state = *it;
                     it++;
                 }
             }
@@ -66,6 +66,7 @@ namespace Recoil {
             data.leftPadding = it - bitstream.begin();
             data.bitstream = std::move(bitstream);
 
+            metadata.splits[0].cutPosition = data.getRealBitstream().size() - 1;
             for (auto splitId = 1; splitId < nSplits; splitId++) {
                 metadata.splits[splitId].cutPosition = diffCutPositions[splitId] + (nSplits - splitId) * saveDiv(data.getRealBitstream().size(), nSplits);
             }
