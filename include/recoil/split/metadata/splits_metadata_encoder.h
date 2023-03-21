@@ -1,8 +1,8 @@
 #ifndef RECOIL_SPLITS_METADATA_ENCODER_H
 #define RECOIL_SPLITS_METADATA_ENCODER_H
 
-#include "recoil/lib/div.h"
-#include "recoil/lib/bits_readwriter.h"
+#include "recoil/lib/math.h"
+#include "recoil/lib/bits_writer.h"
 #include "recoil/rans_coded_data.h"
 
 #include <algorithm>

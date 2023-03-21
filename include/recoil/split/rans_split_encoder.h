@@ -1,7 +1,7 @@
 #ifndef RECOIL_RANS_SPLIT_ENCODER_H
 #define RECOIL_RANS_SPLIT_ENCODER_H
 
-#include "recoil/lib/div.h"
+#include "recoil/lib/math.h"
 #include "recoil/rans.h"
 #include "recoil/rans_coded_data.h"
 #include "recoil/rans_encoder.h"
