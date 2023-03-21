@@ -46,7 +46,7 @@ int main(int argc, const char **argv) {
     enc.buffer(symbols, cdfOffset);
     auto result = enc.flush();
 
-    RansDecoder dec((std::span{result.bitstream}), result.finalRans, pool);
+    RansDecoder dec((result.getRealBitstream()), result.finalRans, pool);
     std::vector<ValueType> decoded;
     auto time = timeIt([&]() { decoded = dec.decode(cdfOffset, lutOffset, symbols.size()); });
     if (std::equal(symbols.begin(), symbols.end(), decoded.begin())) {
@@ -56,7 +56,7 @@ int main(int argc, const char **argv) {
     }
     std::cout << "Throughput: " << text.length() / (time / 1000000.0) / 1024 / 1024 << " MB/s" << std::endl;
 
-    RansDecoder_AVX2_32x32 decAVX2((std::span{result.bitstream}), result.finalRans, pool);
+    RansDecoder_AVX2_32x32 decAVX2(result.getRealBitstream(), result.finalRans, pool);
     time = timeIt([&]() { decoded = decAVX2.decode(cdfOffset, lutOffset, symbols.size()); });
     if (std::equal(symbols.begin(), symbols.end(), decoded.begin())) {
         std::cout << "AVX2 Decoding success! Time: " << time << "us" << std::endl;

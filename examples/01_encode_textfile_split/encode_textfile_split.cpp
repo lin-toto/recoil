@@ -7,6 +7,7 @@
 #include "recoil/split/rans_split_encoder.h"
 #include "recoil/split/rans_split_decoder.h"
 #include "recoil/split/metadata/splits_metadata_encoder.h"
+#include "recoil/split/metadata/splits_metadata_decoder.h"
 
 #include <iostream>
 #include <cstdint>
@@ -47,8 +48,8 @@ int main(int argc, const char **argv) {
     enc.getEncoder().buffer(symbols, cdfOffset);
     auto result = enc.flushSplits(nSplit);
 
-    SplitsMetadataEncoder metadataEnc(result.first, result.second);
-    metadataEnc.combine();
+    //SplitsMetadataEncoder metadataEnc(result.first, result.second);
+    //metadataEnc.combine();
 
     RansSplitDecoder dec(result.first, result.second, pool);
 

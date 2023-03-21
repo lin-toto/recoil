@@ -37,7 +37,7 @@ namespace Recoil {
 
             auto& currentSplit = metadata.splits[splitId];
             MyRansDecoder decoder(
-                    std::span(data.bitstream.data(), currentSplit.cutPosition + 1),
+                    std::span(data.getRealBitstream().data(), currentSplit.cutPosition + 1),
                     currentSplit.intermediateRans, pool);
 
             if (splitId != 0) {
@@ -67,7 +67,7 @@ namespace Recoil {
 
             auto& currentSplit = metadata.splits[splitId];
             MyRansDecoder decoder(
-                    std::span(data.bitstream.data(), currentSplit.cutPosition + 1),
+                    std::span(data.getRealBitstream().data(), currentSplit.cutPosition + 1),
                     currentSplit.intermediateRans, pool);
 
             if (splitId != 0) {

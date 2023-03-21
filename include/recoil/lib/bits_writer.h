@@ -62,7 +62,7 @@ namespace Recoil {
         static uint8_t getActualLength(WriteDataType data) {
             if (data == 0) return 1;
             if (data < 0) data = std::abs(data);
-            return sizeof(WriteDataType) * 8 - std::countl_zero(data);
+            return sizeof(WriteDataType) * 8 - std::countl_zero(static_cast<std::make_unsigned_t<WriteDataType>>(data));
         }
 
         void reset() {

@@ -7,14 +7,13 @@
 
 #include <algorithm>
 #include <vector>
-#include <iostream>
 
 namespace Recoil {
     template<std::unsigned_integral CdfType, std::unsigned_integral ValueType,
             std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
             uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits, size_t NInterleaved>
     class SplitsMetadataEncoder {
-        static_assert(1 << sizeof(RansBitstreamType) >= RenormLowerBound, "RansBitstreamType is too small to fit encoder states");
+        static_assert(1 << (sizeof(RansBitstreamType) * 8) >= RenormLowerBound, "RansBitstreamType is too small to fit encoder states");
 
         using MyRansCodedData = RansCodedData<
                 CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved>;
@@ -26,6 +25,7 @@ namespace Recoil {
 
         std::vector<RansBitstreamType> combine() {
             const auto nSplits = metadata.splits.size();
+            writer.writeData(nSplits, sizeof(uint16_t) * 8);
 
             std::vector<RansBitstreamType> combinedBitstream;
 
@@ -36,7 +36,7 @@ namespace Recoil {
                  * symbol ids should be even. We only code their differences to the estimation to save bit-rate.
                  */
                 auto &split = metadata.splits[splitId];
-                diffCutPositions.push_back(split.cutPosition - (nSplits - splitId) * saveDiv(data.bitstream.size(), nSplits));
+                diffCutPositions.push_back(split.cutPosition - (nSplits - splitId) * saveDiv(data.getRealBitstream().size(), nSplits));
                 diffSymbolGroupIds.push_back(split.minSymbolGroupId() - (nSplits - splitId) * saveDiv(saveDiv(data.symbolCount, NInterleaved), nSplits));
             }
             auto cutPositionsLength = getMaxActualLength(diffCutPositions);
@@ -62,6 +62,10 @@ namespace Recoil {
                     writer.writeData(diffSymbolGroupIdInSplit, symbolGroupIdsInSplitLength);
             }
 
+            for (auto rans : data.finalRans) {
+                writer.writeData(rans.state, sizeof(RansStateType) * 8);
+            }
+
             std::copy(writer.buf.begin(), writer.buf.end(), std::back_inserter(combinedBitstream));
             writer.reset();
 
@@ -70,7 +74,7 @@ namespace Recoil {
                     combinedBitstream.push_back(rans.state);
             }
 
-            std::copy(data.bitstream.begin(), data.bitstream.end(), std::back_inserter(combinedBitstream));
+            std::copy(data.getRealBitstream().begin(), data.getRealBitstream().end(), std::back_inserter(combinedBitstream));
             return combinedBitstream;
         }
     protected:
@@ -88,7 +92,7 @@ namespace Recoil {
         MyRansSplitsMetadata generateDefaultMetadata() {
             MyRansSplitsMetadata metadata{ EqualBitstreamLength, {} };
             metadata.splits.resize(1);
-            metadata.splits[0] = { data.bitstream.size() - 1, data.finalRans, {} };
+            metadata.splits[0] = { data.getRealBitstream().size() - 1, data.finalRans, {} };
             return metadata;
         }
     };

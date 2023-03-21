@@ -31,6 +31,7 @@ namespace Recoil {
         inline MyRansEncoder& getEncoder() { return encoder; }
 
         std::pair<MyRansCodedData, MyRansSplitsMetadata> flushSplits(size_t nSplits, SplitStrategy strategy = HeuristicSymbolCount) {
+            encoder.bitstream.resize(encoder.BitstreamLeftPadding);
             encoder.encodeAll();
 
             MyRansCodedData data;
@@ -60,7 +61,7 @@ namespace Recoil {
                     std::make_pair(0, std::numeric_limits<size_t>::max()));
 
             MyRansCodedData result{
-                    encoder.symbolBuffer.size(), std::move(encoder.bitstream), std::move(encoder.rans)};
+                    encoder.symbolBuffer.size(), std::move(encoder.bitstream), encoder.BitstreamLeftPadding, std::move(encoder.rans)};
 
             auto targetSymbolCountPerSplit = saveDiv(encoder.symbolBuffer.size(), nSplits);
 
@@ -118,9 +119,9 @@ namespace Recoil {
 
         std::pair<MyRansCodedData, MyRansSplitsMetadata> flushSplits_equalBitstreamLength(size_t nSplits) {
             MyRansCodedData result{
-                encoder.symbolBuffer.size(), std::move(encoder.bitstream), std::move(encoder.rans)};
+                encoder.symbolBuffer.size(), std::move(encoder.bitstream), encoder.BitstreamLeftPadding, std::move(encoder.rans)};
 
-            auto targetLengthPerSplit = saveDiv(result.bitstream.size(), nSplits);
+            auto targetLengthPerSplit = saveDiv(result.getRealBitstream().size(), nSplits);
             std::vector<size_t> splitPoints(nSplits);
             for (auto splitId = 1; splitId < nSplits; splitId++) {
                 splitPoints[splitId] = (nSplits - splitId) * targetLengthPerSplit;
@@ -136,7 +137,7 @@ namespace Recoil {
             MyRansSplitsMetadata metadata{ strategy, {} };
             metadata.splits.resize(nSplits);
 
-            metadata.splits[0] = { result.bitstream.size() - 1, result.finalRans, {} };
+            metadata.splits[0] = { result.getRealBitstream().size() - 1, result.finalRans, {} };
             for (auto splitId = 1; splitId < nSplits; splitId++) {
                 auto splitPoint = splitPoints[splitId];
                 auto splitPointIt = encoder.intermediateStates.begin() + splitPoint;

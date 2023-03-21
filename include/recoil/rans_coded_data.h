@@ -2,6 +2,7 @@
 #define RECOIL_RANS_CODED_DATA_H
 
 #include <vector>
+#include <span>
 #include <concepts>
 
 namespace Recoil {
@@ -12,7 +13,11 @@ namespace Recoil {
         using MyRans = Rans<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
         size_t symbolCount;
         std::vector<RansBitstreamType> bitstream;
+        size_t leftPadding;
         std::array<MyRans, NInterleaved> finalRans;
+
+        inline std::span<RansBitstreamType> getRealBitstream() { return (std::span{bitstream}).subspan(leftPadding); }
+        inline std::span<const RansBitstreamType> getRealBitstream() const { return (std::span{bitstream}).subspan(leftPadding); }
     };
 
     enum SplitStrategy {

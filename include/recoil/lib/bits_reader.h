@@ -62,6 +62,5 @@ namespace Recoil {
         BufferDataType curr;
     };
 }
-}
 
 #endif //RECOIL_BITS_READER_H

@@ -43,8 +43,8 @@ int main(int argc, const char **argv) {
     enc.getEncoder().buffer(symbols, cdfOffset);
     auto result = enc.flushSplits(nSplit);
 
-    SplitsMetadataEncoder metadataEnc(result.first, result.second);
-    metadataEnc.combine();
+    //SplitsMetadataEncoder metadataEnc(result.first, result.second);
+    //metadataEnc.combine();
 
     RansSplitDecoderCuda splitDecoderCuda(result.first, result.second, pool);
     auto decoded = splitDecoderCuda.decodeAll(cdfOffset, lutOffset);

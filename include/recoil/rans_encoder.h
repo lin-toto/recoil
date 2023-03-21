@@ -20,6 +20,8 @@ namespace Recoil {
     class RansEncoder {
         template<std::unsigned_integral, std::unsigned_integral, std::unsigned_integral T, std::unsigned_integral, uint8_t, T, uint8_t, uint8_t, size_t>
         friend class RansSplitEncoder;
+
+        const size_t BitstreamLeftPadding = 16;
     protected:
         using MyRans = Rans<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
         using MyCdfLutPool = CdfLutPool<CdfType, ValueType, ProbBits, LutGranularity>;
@@ -54,9 +56,11 @@ namespace Recoil {
         }
 
         MyRansCodedData flush() {
+            // AVX decoder requires 16 bytes of left padding
+            bitstream.resize(BitstreamLeftPadding);
             encodeAll();
 
-            MyRansCodedData result{symbolBuffer.size(), std::move(bitstream), std::move(rans)};
+            MyRansCodedData result{symbolBuffer.size(), std::move(bitstream), BitstreamLeftPadding, std::move(rans)};
             reset();
 
             return result;

@@ -33,7 +33,7 @@ namespace Recoil {
     public:
         RansSplitDecoderCuda(MyRansCodedData data, MyRansSplitsMetadata metadata, const MyCdfLutPool &pool)
             : data(std::move(data)), metadata(std::move(metadata)),
-            bitstream(allocAndCopyToGpu(std::span{this->data.bitstream})),
+            bitstream(allocAndCopyToGpu(this->data.getRealBitstream())),
             poolBuf(allocAndCopyToGpu(pool.getPool(), pool.poolSize())),
             poolGpu(reinterpret_cast<const CdfType*>(reinterpret_cast<const uint8_t*>(pool.getCdfPool()) - pool.getPool() + poolBuf),
                     pool.getCdfSize(),
