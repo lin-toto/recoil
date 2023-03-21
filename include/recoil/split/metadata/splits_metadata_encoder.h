@@ -24,42 +24,49 @@ namespace Recoil {
         SplitsMetadataEncoder(MyRansCodedData data, MyRansSplitsMetadata metadata) : data(std::move(data)), metadata(std::move(metadata)) {}
 
         std::vector<RansBitstreamType> combine() {
-            const auto nSplits = metadata.splits.size();
-            writer.writeData(nSplits, sizeof(uint16_t) * 8);
-
             std::vector<RansBitstreamType> combinedBitstream;
+            const auto nSplits = metadata.splits.size();
 
-            std::vector<int> diffCutPositions, diffSymbolGroupIds;
-            for (auto splitId = 1; splitId < nSplits; splitId++) {
-                /*
-                 * We expect the bitstream to have a uniform distribution, so distribution of cut positions and
-                 * symbol ids should be even. We only code their differences to the estimation to save bit-rate.
-                 */
-                auto &split = metadata.splits[splitId];
-                diffCutPositions.push_back(split.cutPosition - (nSplits - splitId) * saveDiv(data.getRealBitstream().size(), nSplits));
-                diffSymbolGroupIds.push_back(split.minSymbolGroupId() - (nSplits - splitId) * saveDiv(saveDiv(data.symbolCount, NInterleaved), nSplits));
-            }
-            auto cutPositionsLength = getMaxActualLength(diffCutPositions);
-            auto symbolGroupIdsLength = getMaxActualLength(diffSymbolGroupIds);
+            writer.template write<uint16_t>(nSplits);
+            writer.template write<uint32_t>(data.symbolCount);
 
-            writer.template writeLength<int>(cutPositionsLength);
-            for (auto diffCutPosition : diffCutPositions) writer.writeData(diffCutPosition, cutPositionsLength);
-            writer.template writeLength<int>(symbolGroupIdsLength);
-            for (auto diffSymbolGroupId : diffSymbolGroupIds) writer.writeData(diffSymbolGroupId, symbolGroupIdsLength);
-
-            for (auto it = metadata.splits.begin() + 1; it != metadata.splits.end(); it++) {
-                /*
-                 * Similar approach here. Code all symbol group ids in a split related to the minimum id.
-                 */
-                std::vector<uint16_t> diffSymbolGroupIdsInSplit;
-                for (auto startSymbolGroupId : it->startSymbolGroupIds) {
-                    diffSymbolGroupIdsInSplit.push_back(startSymbolGroupId - it->minSymbolGroupId());
+            if (nSplits > 1) {
+                std::vector<int> diffCutPositions, diffSymbolGroupIds;
+                for (auto splitId = 1; splitId < nSplits; splitId++) {
+                    /*
+                     * We expect the bitstream to have a uniform distribution, so distribution of cut positions and
+                     * symbol ids should be even. We only code their differences to the estimation to save bit-rate.
+                     */
+                    auto &split = metadata.splits[splitId];
+                    diffCutPositions.push_back(
+                            split.cutPosition - (nSplits - splitId) * saveDiv(data.getRealBitstream().size(), nSplits));
+                    diffSymbolGroupIds.push_back(split.minSymbolGroupId() - (nSplits - splitId) *
+                                                                            saveDiv(saveDiv(data.symbolCount,
+                                                                                            NInterleaved), nSplits));
                 }
+                auto cutPositionsLength = getMaxActualLength(diffCutPositions);
+                auto symbolGroupIdsLength = getMaxActualLength(diffSymbolGroupIds);
 
-                auto symbolGroupIdsInSplitLength = getMaxActualLength(diffSymbolGroupIdsInSplit);
-                writer.template writeLength<int>(symbolGroupIdsInSplitLength);
-                for (auto diffSymbolGroupIdInSplit : diffSymbolGroupIdsInSplit)
-                    writer.writeData(diffSymbolGroupIdInSplit, symbolGroupIdsInSplitLength);
+                writer.template writeLength<int>(cutPositionsLength);
+                for (auto diffCutPosition: diffCutPositions) writer.writeData(diffCutPosition, cutPositionsLength);
+                writer.template writeLength<int>(symbolGroupIdsLength);
+                for (auto diffSymbolGroupId: diffSymbolGroupIds)
+                    writer.writeData(diffSymbolGroupId, symbolGroupIdsLength);
+
+                for (auto it = metadata.splits.begin() + 1; it != metadata.splits.end(); it++) {
+                    /*
+                     * Similar approach here. Code all symbol group ids in a split related to the minimum id.
+                     */
+                    std::vector<uint16_t> diffSymbolGroupIdsInSplit;
+                    for (auto startSymbolGroupId: it->startSymbolGroupIds) {
+                        diffSymbolGroupIdsInSplit.push_back(startSymbolGroupId - it->minSymbolGroupId());
+                    }
+
+                    auto symbolGroupIdsInSplitLength = getMaxActualLength(diffSymbolGroupIdsInSplit);
+                    writer.template writeLength<int>(symbolGroupIdsInSplitLength);
+                    for (auto diffSymbolGroupIdInSplit: diffSymbolGroupIdsInSplit)
+                        writer.writeData(diffSymbolGroupIdInSplit, symbolGroupIdsInSplitLength);
+                }
             }
 
             for (auto rans : data.finalRans) {
