@@ -46,10 +46,26 @@ namespace Recoil {
             splits = allocAndCopyToGpu(std::span{splitsLocal});
         }
 
+        int estimateMaxOccupancySplits() {
+            int maxBlocks;
+            cudaCheck(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+                    &maxBlocks,
+                    CudaLauncher::launchCudaDecode_staticCdf<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, LutGranularity, NInterleaved, NThreads>,
+                    NThreads,
+                    0));
+
+            int deviceID;
+            cudaDeviceProp props;
+
+            cudaGetDevice(&deviceID);
+            cudaGetDeviceProperties(&props, deviceID);
+            return maxBlocks * props.multiProcessorCount * (NThreads / NInterleaved);
+        }
+
         std::vector<ValueType> decodeAll(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset) {
             auto start = std::chrono::high_resolution_clock::now();
 
-            CudaLauncher::launchCudaDecode<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, LutGranularity, NInterleaved, NThreads>
+            CudaLauncher::launchCudaDecode_staticCdf<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, LutGranularity, NInterleaved, NThreads>
                     <<<metadata.splits.size() / (NThreads / NInterleaved), NThreads>>>(
                     metadata.splits.size(), data.symbolCount, std::move(poolGpu),
                     bitstream, outputBuffer, splits, cdfOffset, lutOffset);
@@ -74,7 +90,7 @@ namespace Recoil {
 
             auto start = std::chrono::high_resolution_clock::now();
 
-            CudaLauncher::launchCudaDecode<<<metadata.splits.size() / (NThreads / NInterleaved), NThreads>>>(
+            CudaLauncher::launchCudaDecode_multiCdf<<<metadata.splits.size() / (NThreads / NInterleaved), NThreads>>>(
                     metadata.splits.size(), data.symbolCount, std::move(poolGpu), bitstream, outputBuffer, splits, allCdfOffsetsCuda, allLutOffsetsCuda);
             cudaDeviceSynchronize();
 

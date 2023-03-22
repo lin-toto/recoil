@@ -47,7 +47,7 @@ namespace Recoil::CudaLauncher {
             std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
             uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits, uint8_t LutGranularity,
             size_t NInterleaved, size_t NThreads>
-    CUDA_GLOBAL void launchCudaDecode(
+    CUDA_GLOBAL void launchCudaDecode_staticCdf(
             const uint32_t nSplits,
             uint32_t totalSymbolCount,
             CdfLutPool<CdfType, ValueType, ProbBits, LutGranularity> pool,
@@ -86,7 +86,7 @@ namespace Recoil::CudaLauncher {
             std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
             uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits, uint8_t LutGranularity,
             size_t NInterleaved, size_t NThreads>
-    CUDA_GLOBAL void launchCudaDecode(
+    CUDA_GLOBAL void launchCudaDecode_multiCdf(
             const uint32_t nSplits,
             uint32_t totalSymbolCount,
             CdfLutPool<CdfType, ValueType, ProbBits, LutGranularity> pool,

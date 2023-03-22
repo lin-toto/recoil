@@ -47,6 +47,7 @@ int main(int argc, const char **argv) {
     //metadataEnc.combine();
 
     RansSplitDecoderCuda splitDecoderCuda(result.first, result.second, pool);
+    std::cout << "Max occupancy is at " << splitDecoderCuda.estimateMaxOccupancySplits() << " splits, current split count is " << nSplit << std::endl;
     auto decoded = splitDecoderCuda.decodeAll(cdfOffset, lutOffset);
     //for (auto s:decoded) std::cout<<s;
 
