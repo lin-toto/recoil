@@ -3,11 +3,39 @@
 
 #include <string>
 #include <fstream>
+#include <iterator>
 #include <vector>
 #include <concepts>
+#include <span>
 
 namespace Recoil::Examples {
     std::string readFile(const std::string &name, std::ios_base::openmode mode = std::ios_base::in);
+
+    template<typename T>
+    void writeSpanToFile(const std::string &name, std::span<T> span) {
+        std::ofstream fout(name, std::ios::out | std::ios::binary);
+        fout.write(reinterpret_cast<const char *>(span.data()), span.size_bytes());
+        fout.close();
+    }
+
+    template<typename T>
+    std::vector<T> readVectorFromFile(const std::string &name) {
+        std::ifstream fin(name, std::ios::binary);
+        fin.unsetf(std::ios::skipws);
+
+        fin.seekg(0, std::ios::end);
+        auto fileSize = fin.tellg();
+        fin.seekg(0, std::ios::beg);
+
+        std::vector<T> vec;
+        vec.reserve(fileSize / sizeof(T));
+
+        std::copy(std::istream_iterator<T>(fin),
+                  std::istream_iterator<T>(),
+                  std::back_inserter(vec));
+
+        return vec;
+    }
 
     template<std::unsigned_integral ValueType>
     std::vector<ValueType> stringToSymbols(const std::string &str) {

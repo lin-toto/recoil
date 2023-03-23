@@ -1,10 +1,12 @@
 #include "cdf_utils.h"
 #include "file.h"
+#include "profiling.h"
 
 #include "recoil/symbol_lookup/cdf_lut_pool.h"
 #include "recoil/split/rans_split_encoder.h"
 #include "recoil/cuda/rans_split_decoder_cuda.cuh"
 #include "recoil/split/metadata/splits_metadata_encoder.h"
+#include "recoil/split/metadata/splits_metadata_decoder.h"
 
 #include <iostream>
 #include <vector>
@@ -43,10 +45,13 @@ int main(int argc, const char **argv) {
     enc.getEncoder().buffer(symbols, cdfOffset);
     auto result = enc.flushSplits(nSplit);
 
-    //SplitsMetadataEncoder metadataEnc(result.first, result.second);
-    //metadataEnc.combine();
+    SplitsMetadataEncoder metadataEnc(result.first, result.second);
+    auto bitstream = metadataEnc.combine();
 
-    RansSplitDecoderCuda splitDecoderCuda(result.first, result.second, pool);
+    SplitsMetadataDecoder<uint16_t, uint8_t, uint32_t, uint16_t, ProbBits, 1u << 16, 16, NInterleaved> metadataDec(bitstream);
+    auto result2 = metadataDec.decode();
+
+    RansSplitDecoderCuda splitDecoderCuda(result2.first, result2.second, pool);
     std::cout << "Max occupancy is at " << splitDecoderCuda.estimateMaxOccupancySplits() << " splits, current split count is " << nSplit << std::endl;
     auto decoded = splitDecoderCuda.decodeAll(cdfOffset, lutOffset);
     //for (auto s:decoded) std::cout<<s;

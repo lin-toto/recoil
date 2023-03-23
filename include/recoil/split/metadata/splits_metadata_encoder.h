@@ -79,6 +79,9 @@ namespace Recoil {
                     combinedBitstream.push_back(rans.state);
             }
 
+            std::copy(writer.buf.begin(), writer.buf.end(), std::back_inserter(combinedBitstream));
+            writer.reset();
+
             std::copy(data.getRealBitstream().begin(), data.getRealBitstream().end(), std::back_inserter(combinedBitstream));
             return combinedBitstream;
         }

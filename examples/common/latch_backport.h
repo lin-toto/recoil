@@ -1,5 +1,5 @@
-#ifndef RECOIL_LATCH_BACKPORT_H
-#define RECOIL_LATCH_BACKPORT_H
+#ifndef RECOIL_EXAMPLE_LATCH_BACKPORT_H
+#define RECOIL_EXAMPLE_LATCH_BACKPORT_H
 
 #include <condition_variable>
 #include <atomic>
@@ -44,4 +44,4 @@ namespace Recoil::Examples {
     };
 }
 
-#endif //RECOIL_LATCH_BACKPORT_H
+#endif //RECOIL_EXAMPLE_LATCH_BACKPORT_H

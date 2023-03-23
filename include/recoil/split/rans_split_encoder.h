@@ -25,8 +25,7 @@ namespace Recoil {
         using MyRansSplitsMetadata = RansSplitsMetadata<
                 CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved>;
     public:
-        explicit RansSplitEncoder(
-                std::array<MyRans, NInterleaved> rans,  const MyCdfLutPool& pool): encoder(std::move(rans), pool) {}
+        RansSplitEncoder(std::array<MyRans, NInterleaved> rans, const MyCdfLutPool& pool): encoder(std::move(rans), pool) {}
 
         inline MyRansEncoder& getEncoder() { return encoder; }
 

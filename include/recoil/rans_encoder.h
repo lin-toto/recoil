@@ -20,6 +20,8 @@ namespace Recoil {
     class RansEncoder {
         template<std::unsigned_integral, std::unsigned_integral, std::unsigned_integral T, std::unsigned_integral, uint8_t, T, uint8_t, uint8_t, size_t>
         friend class RansSplitEncoder;
+        template<std::unsigned_integral, std::unsigned_integral, std::unsigned_integral T, std::unsigned_integral, uint8_t, T, uint8_t, uint8_t, size_t>
+        friend class RansSymbolSplitEncoder;
 
         const size_t BitstreamLeftPadding = 16;
     protected:

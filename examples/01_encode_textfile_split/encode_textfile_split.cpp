@@ -71,6 +71,7 @@ int main(int argc, const char **argv) {
     latch.count_down();
     for (int i = 0; i < nSplit; i++) tasks[i].wait();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - timer).count();
+    std::cout << "Time: " << elapsed << "us" << std::endl;
     std::cout << "Throughput: " << text.length() / (elapsed / 1000000.0) / 1024 / 1024 << " MB/s" << std::endl;
 
     if (std::equal(symbols.begin(), symbols.end(), dec.result.begin())) {

@@ -22,7 +22,7 @@ namespace Recoil {
             std::unsigned_integral RansStateType, std::unsigned_integral RansBitstreamType,
             uint8_t ProbBits, RansStateType RenormLowerBound, uint8_t WriteBits, uint8_t LutGranularity, size_t NInterleaved>
     class RansSplitDecoderCuda {
-        static const int NThreads = 64;
+        static const int NThreads = 128;
 
         using MyRansCodedData = RansCodedData<
                 CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved>;
