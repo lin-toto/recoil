@@ -7,11 +7,11 @@ namespace Recoil {
         return (a + b - 1) / b;
     }
 
-    consteval uint8_t floorlog2(const uint8_t x) {
+    constexpr uint8_t floorlog2(const uint8_t x) {
         return x == 1 ? 0 : 1 + floorlog2(x >> 1);
     }
 
-    consteval uint8_t ceillog2(const uint8_t x) {
+    constexpr uint8_t ceillog2(const uint8_t x) {
         return x == 1 ? 0 : floorlog2(x - 1) + 1;
     }
 }

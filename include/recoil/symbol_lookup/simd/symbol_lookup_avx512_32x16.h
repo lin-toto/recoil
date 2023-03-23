@@ -7,7 +7,7 @@
 namespace Recoil {
     template<std::unsigned_integral ValueType, uint8_t ProbBits, uint8_t LutGranularity>
     class SymbolLookup_AVX512_32x16 : public SymbolLookup_AVX_Base<ValueType, ProbBits, LutGranularity, u32x16_wrapper> {
-        using MyBase = SymbolLookup_AVX_Base<ValueType, ProbBits, LutGranularity, u32x8_wrapper>;
+        using MyBase = SymbolLookup_AVX_Base<ValueType, ProbBits, LutGranularity, u32x16_wrapper>;
         using MyLutItem = typename MyBase::MyLutItem;
     public:
         using MyBase::MyBase;
@@ -16,7 +16,7 @@ namespace Recoil {
             const u32x16 symbolMask = _mm512_set1_epi32((1 << (8 * sizeof(ValueType))) - 1);
 
             u32x16 offsets = _mm512_add_epi32(lutOffsets, probabilities);
-            u32x16 rawValues = _mm512_i32gather_epi32(reinterpret_cast<const int*>(this->lutPool), offsets, sizeof(MyLutItem));
+            u32x16 rawValues = _mm512_i32gather_epi32(offsets, reinterpret_cast<const int*>(this->lutPool), sizeof(MyLutItem));
             return _mm512_and_si512(rawValues, symbolMask);
         }
 
@@ -24,7 +24,9 @@ namespace Recoil {
                 const u32x16 cdfOffsets, const u32x16 startPositions, const u32x16 probabilities) const override {
             typename MyBase::SymbolInfo symbolInfo;
 
-            getOneSymbolInfo_mixed<0>(symbolInfo, cdfOffsets, startPositions, probabilities);
+            throw std::runtime_error("Not implemented for AVX512");
+
+            /*getOneSymbolInfo_mixed<0>(symbolInfo, cdfOffsets, startPositions, probabilities);
             getOneSymbolInfo_mixed<1>(symbolInfo, cdfOffsets, startPositions, probabilities);
             getOneSymbolInfo_mixed<2>(symbolInfo, cdfOffsets, startPositions, probabilities);
             getOneSymbolInfo_mixed<3>(symbolInfo, cdfOffsets, startPositions, probabilities);
@@ -41,7 +43,7 @@ namespace Recoil {
             getOneSymbolInfo_mixed<14>(symbolInfo, cdfOffsets, startPositions, probabilities);
             getOneSymbolInfo_mixed<15>(symbolInfo, cdfOffsets, startPositions, probabilities);
 
-            return symbolInfo;
+            return symbolInfo;*/
         }
 
         [[nodiscard]] inline typename MyBase::SymbolInfo getSymbolInfo_lutOnly(
@@ -50,10 +52,10 @@ namespace Recoil {
             const u32x16 cdfMask = _mm512_set1_epi32(0xffff);
 
             u32x16 offsets = _mm512_add_epi32(lutOffsets, probabilities);
-            u32x16 startsAndFrequencies = _mm512_i32gather_epi32(reinterpret_cast<const int*>(this->lutPool), offsets, sizeof(uint64_t));
+            u32x16 startsAndFrequencies = _mm512_i32gather_epi32(offsets, reinterpret_cast<const int*>(this->lutPool), sizeof(uint64_t));
 
-            u32x16 symbolOffsets = _mm512_add_epi32(_mm512_slli_epi32(offsets, 1), _mm256_set1_epi32(1));
-            u32x16 symbols = _mm512_i32gather_epi32(reinterpret_cast<const int*>(this->lutPool), symbolOffsets, sizeof(uint64_t) / 2);
+            u32x16 symbolOffsets = _mm512_add_epi32(_mm512_slli_epi32(offsets, 1), _mm512_set1_epi32(1));
+            u32x16 symbols = _mm512_i32gather_epi32(symbolOffsets, reinterpret_cast<const int*>(this->lutPool), sizeof(uint64_t) / 2);
             symbols = _mm512_and_si512(symbols, symbolMask);
 
             u32x16 starts = _mm512_and_si512(startsAndFrequencies, cdfMask);
@@ -68,7 +70,7 @@ namespace Recoil {
             const u32x16 cdfMask = _mm512_set1_epi32(0x0fff);
 
             u32x16 offsets = _mm512_add_epi32(lutOffsets, probabilities);
-            u32x16 lutReadout = _mm512_i32gather_epi32(reinterpret_cast<const int*>(this->lutPool), offsets, sizeof(uint32_t));
+            u32x16 lutReadout = _mm512_i32gather_epi32(offsets, reinterpret_cast<const int*>(this->lutPool), sizeof(uint32_t));
 
             u32x16 symbols = _mm512_and_si512(lutReadout, symbolMask);
             u32x16 starts = _mm512_and_si512(_mm512_srli_epi32(lutReadout, 8), cdfMask);
@@ -76,7 +78,7 @@ namespace Recoil {
 
             return { symbols, starts, frequencies };
         }
-    private:
+    /*private:
         template<const int i>
         inline void getOneSymbolInfo_mixed(
                 typename MyBase::SymbolInfo& symbolInfo,
@@ -88,7 +90,7 @@ namespace Recoil {
             symbolInfo.value = _mm512_insert_epi32(symbolInfo.value, value, i);
             symbolInfo.start = _mm512_insert_epi32(symbolInfo.start, start, i);
             symbolInfo.frequency = _mm512_insert_epi32(symbolInfo.frequency, frequency, i);
-        }
+        }*/
     };
 }
 

@@ -2,6 +2,7 @@
 #include <numeric>
 #include <stdexcept>
 #include <array>
+#include <algorithm>
 
 namespace Recoil::Examples {
     std::vector<uint16_t> buildCdfFromString(std::string_view str, uint8_t probBits) {

@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <vector>
 #include <stdexcept>
+#include <utility>
 
 namespace Recoil {
     using CdfLutOffsetType = uint32_t;
