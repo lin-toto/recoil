@@ -129,26 +129,6 @@ namespace Recoil {
         MyCdfLutPool poolGpu;
 
         uint64_t lastDuration = 0;
-
-        template<typename T>
-        static T *allocAndCopyToGpu(const T *hostPtr, const size_t size) {
-            CUDA_DEVICE_PTR T *devicePtr;
-            cudaCheck(cudaMalloc(reinterpret_cast<void**>(&devicePtr), size));
-            cudaCheck(cudaMemcpy(devicePtr, hostPtr, size, cudaMemcpyHostToDevice));
-
-            return devicePtr;
-        }
-
-        template<typename T>
-        static T *allocAndCopyToGpu(const std::span<T> span) {
-            return allocAndCopyToGpu(span.data(), span.size_bytes());
-        }
-
-        static void cudaCheck(cudaError_t code) {
-            if (code != cudaSuccess) {
-                throw std::runtime_error(std::string("CUDA error: ") + std::string(cudaGetErrorString(code)));
-            }
-        }
     };
 }
 

@@ -41,9 +41,7 @@ namespace Recoil {
                 currentBitPosition -= len;
 
                 if (currentBitPosition == 0) {
-                    currentBitPosition = sizeof(BufferDataType) * 8;
-                    it++;
-                    curr = *it;
+                   forward();
                 }
             }
 
@@ -54,6 +52,12 @@ namespace Recoil {
         ReadDataType readData(uint8_t actualLength) {
             auto signBit = readData<uint8_t>(1) == 0 ? 1 : -1;
             return signBit * readData<std::make_unsigned_t<ReadDataType>>(actualLength);
+        }
+
+        void forward() {
+            currentBitPosition = sizeof(BufferDataType) * 8;
+            it++;
+            curr = *it;
         }
 
         [[nodiscard]] inline size_t currentIteratorPosition() const { return it - buf.begin(); }

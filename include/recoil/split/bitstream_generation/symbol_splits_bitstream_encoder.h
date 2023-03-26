@@ -22,11 +22,10 @@ namespace Recoil {
         std::vector<RansBitstreamType> combine() {
             std::vector<RansBitstreamType> combinedBitstream;
             const auto nSplits = data.size();
+            writer.template write<uint16_t>(nSplits);
 
-            for (auto &d : data) {
-                for (auto &rans : d.finalRans)
-                    writer.writeData(rans.state, sizeof(RansStateType) * 8);
-            }
+            auto totalSymbolCount = std::accumulate(data.begin(), data.end(), 0, [](size_t len, auto &v) { return len + v.symbolCount; });
+            writer.template write<uint32_t>(totalSymbolCount);
 
             auto totalRawBitstreamLength = std::accumulate(
                     data.begin(), data.end(), 0, [](size_t len, auto &d) { return len + d.getRealBitstream().size(); });
@@ -40,8 +39,12 @@ namespace Recoil {
             for (auto bitstreamLengthDiff : bitstreamLengthDiffs)
                 writer.template writeData<int32_t>(bitstreamLengthDiff, bitstreamLengthDiffsLength);
 
-            auto totalSymbolCount = std::accumulate(data.begin(), data.end(), 0, [](size_t len, auto &v) { return len + v.symbolCount; });
-            writer.template write<uint32_t>(totalSymbolCount);
+            writer.forward();
+
+            for (auto &d : data) {
+                for (auto &rans : d.finalRans)
+                    writer.writeData(rans.state, sizeof(RansStateType) * 8);
+            }
 
             std::copy(writer.buf.begin(), writer.buf.end(), std::back_inserter(combinedBitstream));
             writer.reset();

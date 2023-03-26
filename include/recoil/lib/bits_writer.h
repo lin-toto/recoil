@@ -46,8 +46,7 @@ namespace Recoil {
                 currentBitPosition -= len;
 
                 if (currentBitPosition == 0) {
-                    currentBitPosition = sizeof(BufferDataType) * 8;
-                    buf.push_back(0);
+                    forward();
                 }
             }
         }
@@ -69,6 +68,11 @@ namespace Recoil {
         static uint8_t getMaxActualLength(const std::vector<WriteDataType> &arr) {
             return getActualLength(*std::max_element(
                     arr.begin(), arr.end(), [](const auto& a, const auto& b) { return abs(a) < abs(b); }));
+        }
+
+        void forward() {
+            currentBitPosition = sizeof(BufferDataType) * 8;
+            buf.push_back(0);
         }
 
         void reset() {
