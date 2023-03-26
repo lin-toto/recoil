@@ -73,7 +73,6 @@ namespace Recoil {
             symbolBuffer.clear();
             if constexpr (RecordIntermediateStates) intermediateStates.clear();
             std::for_each(rans.begin(), rans.end(), [](MyRans &r) { r.reset(); });
-            symbolCounter = 0;
         }
     protected:
         struct Symbol {
@@ -105,17 +104,15 @@ namespace Recoil {
         std::vector<RansBitstreamType> bitstream;
         std::vector<Symbol> symbolBuffer;
         std::vector<EncoderIntermediateState> intermediateStates;
-        size_t symbolCounter = 0;
 
         inline void bufferSymbol(const ValueType value, const CdfLutOffsetType cdfId) {
             auto [_, start, frequency] = symbolLookup.getSymbolInfo(cdfId, value);
 
-            symbolBuffer.push_back({symbolCounter, Symbol::Encoded, typename Symbol::EncodedSymbol({start, frequency})});
-            symbolCounter++;
+            symbolBuffer.push_back({symbolBuffer.size(), Symbol::Encoded, typename Symbol::EncodedSymbol({start, frequency})});
 
             /* TODO: support bypass coding
             uint8_t bits = sizeof(ValueType) * 8 - std::countl_zero(static_cast<unsigned int>(value));
-            symbolBuffer.push_back({symbolCounter, Symbol::Bypass, typename Symbol::BypassSymbol({value, bits})}); */
+            symbolBuffer.push_back({symbolBuffer.size(), Symbol::Bypass, typename Symbol::BypassSymbol({value, bits})}); */
         }
 
         /*
