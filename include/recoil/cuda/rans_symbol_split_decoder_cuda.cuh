@@ -11,6 +11,7 @@
 #include <cuda_runtime_api.h>
 #include <cuda/std/array>
 #include <chrono>
+#include <numeric>
 
 namespace Recoil {
     namespace SymbolSplitDecoderCuda {
@@ -24,7 +25,7 @@ namespace Recoil {
                 CdfLutPool<CdfType, ValueType, ProbBits, LutGranularity> pool,
                 CUDA_DEVICE_PTR const RansBitstreamType *bitstreams,
                 CUDA_DEVICE_PTR const uint32_t *bitstreamOffsets,
-                CUDA_DEVICE_PTR const RansStateType *rans,
+                CUDA_DEVICE_PTR const Rans<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits> *rans,
                 CUDA_DEVICE_PTR ValueType *outputBuffer,
                 const CdfLutOffsetType cdfOffset,
                 const CdfLutOffsetType lutOffset
@@ -41,7 +42,7 @@ namespace Recoil {
                     outputBuffer, perSplitSymbolCount * splitId, pool,
                     rans[splitId * NInterleaved + decoderId]);
 
-            decoder.decode(cdfOffset, lutOffset, splitId == nSplits - 1 ? perSplitSymbolCount : totalSymbolCount % perSplitSymbolCount);
+            decoder.decode(cdfOffset, lutOffset, splitId == nSplits - 1 ? totalSymbolCount - (perSplitSymbolCount * (nSplits - 1)) : perSplitSymbolCount);
         }
 
         template<std::unsigned_integral CdfType, std::unsigned_integral ValueType,
@@ -73,7 +74,7 @@ namespace Recoil {
 
             decoder.decode(allCdfOffsets + perSplitSymbolCount * splitId,
                            allLutOffsets + perSplitSymbolCount * splitId,
-                           splitId == nSplits - 1 ? perSplitSymbolCount : totalSymbolCount % perSplitSymbolCount);
+                           splitId == nSplits - 1 ? totalSymbolCount - (perSplitSymbolCount * (nSplits - 1)) : perSplitSymbolCount);
         }
     }
 
@@ -87,32 +88,35 @@ namespace Recoil {
     class RansSymbolSplitDecoderCuda {
         static const int NThreads = 128;
 
+        using MyRans = Rans<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits>;
         using MyRansCodedData = RansCodedData<
                 CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved>;
         using MyCdfLutPool = CdfLutPool<CdfType, ValueType, ProbBits, LutGranularity>;
     public:
         RansSymbolSplitDecoderCuda(std::vector<MyRansCodedData> data, const MyCdfLutPool &pool)
-            : data(std::move(data)), totalSymbolCount(std::accumulate(data.begin(), data.end(), 0, [](size_t len, auto &d) { return len + d.symbolCount; })),
+            : data(std::move(data)),
+            totalSymbolCount(std::accumulate(this->data.begin(), this->data.end(), 0, [](size_t len, auto &d) { return len + d.symbolCount; })),
             poolBuf(allocAndCopyToGpu(pool.getPool(), pool.poolSize())),
             poolGpu(reinterpret_cast<const CdfType*>(reinterpret_cast<const uint8_t*>(pool.getCdfPool()) - pool.getPool() + poolBuf),
                     pool.getCdfSize(),
                     reinterpret_cast<const MyCdfLutPool::MyLutItem *>(reinterpret_cast<const uint8_t*>(pool.getLutPool()) - pool.getPool() + poolBuf),
                     pool.getLutSize()) {
-            cudaCheck(cudaMalloc(&outputBuffer, sizeof(ValueType) * data.symbolCount));
-            cudaCheck(cudaMalloc(&bitstreamOffsets, sizeof(uint32_t) * data.size()));
-            cudaCheck(cudaMalloc(&finalRans, sizeof(RansStateType) * NInterleaved * data.size()));
+            printf("%d\n", totalSymbolCount);
+            cudaCheck(cudaMalloc(&outputBuffer, sizeof(ValueType) * totalSymbolCount));
+            cudaCheck(cudaMalloc(&bitstreamOffsets, sizeof(uint32_t) * this->data.size()));
+            cudaCheck(cudaMalloc(&finalRans, sizeof(RansStateType) * NInterleaved * this->data.size()));
 
-            size_t totalBitstreamLength = std::accumulate(data.begin(), data.end(), 0, [](size_t len, auto &d) { return len + d.getRealBitstream().size(); });
+            size_t totalBitstreamLength = std::accumulate(this->data.begin(), this->data.end(), 0, [](size_t len, auto &d) { return len + d.getRealBitstream().size(); });
             cudaCheck(cudaMalloc(&bitstreams, sizeof(RansBitstreamType) * totalBitstreamLength));
             auto *bitstreamsPtr = bitstreams;
-            for (int splitId = 0; splitId < data.size(); splitId++) {
-                auto &d = data[splitId];
+            for (int splitId = 0; splitId < this->data.size(); splitId++) {
+                auto &d = this->data[splitId];
                 cudaMemcpy(bitstreamsPtr, d.getRealBitstream().data(), d.getRealBitstream().size_bytes(), cudaMemcpyHostToDevice);
 
-                unsigned int offset = bitstreamsPtr - bitstreams;
-                cudaMemcpy(&bitstreamOffsets[splitId], &offset, sizeof(unsigned int), cudaMemcpyHostToDevice);
-
                 bitstreamsPtr += d.getRealBitstream().size();
+
+                unsigned int offset = bitstreamsPtr - bitstreams - 1;
+                cudaMemcpy(&bitstreamOffsets[splitId], &offset, sizeof(unsigned int), cudaMemcpyHostToDevice);
 
                 cudaMemcpy(finalRans + splitId * NInterleaved, d.finalRans.data(), d.finalRans.size() * sizeof(RansStateType), cudaMemcpyHostToDevice);
             }
@@ -120,16 +124,19 @@ namespace Recoil {
 
         int estimateMaxOccupancySplits() {
             return estimateMaxOccupancy(
-                    SymbolSplitDecoderCuda::launchCudaDecode_staticCdf<
+                    reinterpret_cast<const void*>(SymbolSplitDecoderCuda::launchCudaDecode_staticCdf<
                             CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound,
-                            WriteBits, LutGranularity, NInterleaved, NThreads>,
+                            WriteBits, LutGranularity, NInterleaved, NThreads>),
                     NThreads) * (NThreads / NInterleaved);
         }
 
         std::vector<ValueType> decodeAll(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset) {
             auto start = std::chrono::high_resolution_clock::now();
 
-            SymbolSplitDecoderCuda::launchCudaDecode_staticCdf<<<data.size() / (NThreads / NInterleaved), NThreads>>>(
+            SymbolSplitDecoderCuda::launchCudaDecode_staticCdf<
+                    CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound,
+                    WriteBits, LutGranularity, NInterleaved, NThreads>
+            <<<data.size() / (NThreads / NInterleaved), NThreads>>>(
                     data.size(), totalSymbolCount, std::move(poolGpu),
                     bitstreams, bitstreamOffsets, finalRans, outputBuffer, cdfOffset, lutOffset);
             cudaDeviceSynchronize();
@@ -139,8 +146,8 @@ namespace Recoil {
             lastDuration = duration.count();
 
             std::vector<ValueType> result;
-            result.resize(data.symbolCount);
-            cudaMemcpy(result.data(), outputBuffer, sizeof(ValueType) * data.symbolCount, cudaMemcpyDeviceToHost);
+            result.resize(totalSymbolCount);
+            cudaMemcpy(result.data(), outputBuffer, sizeof(ValueType) * totalSymbolCount, cudaMemcpyDeviceToHost);
 
             return result;
         }
@@ -153,7 +160,10 @@ namespace Recoil {
 
             auto start = std::chrono::high_resolution_clock::now();
 
-            SymbolSplitDecoderCuda::launchCudaDecode_multiCdf<<<data.size() / (NThreads / NInterleaved), NThreads>>>(
+            SymbolSplitDecoderCuda::launchCudaDecode_multiCdf<
+                    CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound,
+                    WriteBits, LutGranularity, NInterleaved, NThreads>
+            <<<data.size() / (NThreads / NInterleaved), NThreads>>>(
                     data.size(), totalSymbolCount, std::move(poolGpu),
                     bitstreams, bitstreamOffsets, finalRans, outputBuffer, allCdfOffsetsCuda, allLutOffsetsCuda);
             cudaDeviceSynchronize();
@@ -166,8 +176,8 @@ namespace Recoil {
             lastDuration = duration.count();
 
             std::vector<ValueType> result;
-            result.resize(data.symbolCount);
-            cudaMemcpy(result.data(), outputBuffer, sizeof(ValueType) * data.symbolCount, cudaMemcpyDeviceToHost);
+            result.resize(totalSymbolCount);
+            cudaMemcpy(result.data(), outputBuffer, sizeof(ValueType) * totalSymbolCount, cudaMemcpyDeviceToHost);
 
             return result;
         }
@@ -190,7 +200,7 @@ namespace Recoil {
         CUDA_DEVICE_PTR uint8_t *poolBuf;
         CUDA_DEVICE_PTR RansBitstreamType *bitstreams;
         CUDA_DEVICE_PTR uint32_t *bitstreamOffsets;
-        CUDA_DEVICE_PTR RansStateType *finalRans;
+        CUDA_DEVICE_PTR MyRans *finalRans;
 
         MyCdfLutPool poolGpu;
 

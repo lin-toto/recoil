@@ -10,4 +10,22 @@ namespace Recoil::Examples {
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
         return duration.count();
     }
+
+    std::string jsonOutput(size_t originalSize, size_t compressedSize, unsigned int elapsed) {
+        const char *jsonLiteral = R"(
+{
+    "original_size_bytes": %llu,
+    "compressed_size_bytes": %llu,
+    "time": %u,
+    "throughput_mb": %.2f
+}
+)";
+
+        float throughput = originalSize / (elapsed / 1000000.0) / 1024 / 1024;
+
+        char buf[200]; // Probably more than enough?
+        snprintf(buf, 200, jsonLiteral, originalSize, compressedSize, elapsed, throughput);
+
+        return buf;
+    }
 }

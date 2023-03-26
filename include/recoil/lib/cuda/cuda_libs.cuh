@@ -40,7 +40,7 @@ namespace Recoil {
         return allocAndCopyToGpu(span.data(), span.size_bytes());
     }
 
-    inline int estimateMaxOccupancy(void *func, int nThreads) {
+    inline int estimateMaxOccupancy(const void *func, int nThreads) {
         int maxBlocks;
         cudaCheck(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&maxBlocks, func, nThreads, 0));
 

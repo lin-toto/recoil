@@ -22,6 +22,7 @@ namespace Recoil {
             auto totalSymbolCount = reader.template read<uint32_t>();
 
             std::vector<MyRansCodedData> data;
+            data.resize(nSplits);
 
             std::vector<int32_t> bitstreamLengthDiffs(nSplits);
             auto bitstreamLengthDiffsLength = reader.template readLength<int32_t>();
@@ -31,19 +32,19 @@ namespace Recoil {
             reader.forward();
             for (auto &d : data) {
                 for (auto &rans : d.finalRans)
-                    rans.state = reader.template readData<RansBitstreamType>(sizeof(RansStateType) * 8);
+                    rans.state = reader.template readData<RansStateType>(sizeof(RansStateType) * 8);
             }
 
             auto it = bitstream.begin() + reader.currentIteratorPosition() + 1;
             auto bitstreamLengthSum = bitstream.end() - it;
             for (int splitId = 0; splitId < nSplits; splitId++) {
                 const auto symbolsPerSplit = saveDiv<size_t>(totalSymbolCount, nSplits);
-                data[splitId].symbolCount = splitId == nSplits - 1 ? totalSymbolCount % symbolsPerSplit : symbolsPerSplit;
+                data[splitId].symbolCount = splitId == nSplits - 1 ? totalSymbolCount - (symbolsPerSplit * (nSplits - 1)) : symbolsPerSplit;
 
                 data[splitId].bitstream.resize(16);
                 data[splitId].leftPadding = 16;
 
-                auto bitstreamLength = saveDiv(bitstreamLengthSum, nSplits) + bitstreamLengthDiffs[splitId];
+                auto bitstreamLength = saveDiv<size_t>(bitstreamLengthSum, nSplits) + bitstreamLengthDiffs[splitId];
                 std::copy(it,
                           it + bitstreamLength,
                           std::back_inserter(data[splitId].bitstream));
