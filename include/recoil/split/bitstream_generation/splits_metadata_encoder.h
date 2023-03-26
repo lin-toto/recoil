@@ -27,6 +27,11 @@ namespace Recoil {
             std::vector<RansBitstreamType> combinedBitstream;
             const auto nSplits = metadata.splits.size();
 
+            for (auto rans : data.finalRans) {
+                // Write aligned rans final states first
+                writer.writeData(rans.state, sizeof(RansStateType) * 8);
+            }
+
             writer.template write<uint16_t>(nSplits);
             writer.template write<uint32_t>(data.symbolCount);
 
@@ -42,8 +47,8 @@ namespace Recoil {
                             split.cutPosition - (nSplits - splitId) * saveDiv(data.getRealBitstream().size(), nSplits));
                     diffSymbolGroupIds.push_back(split.minSymbolGroupId() - splitId * saveDiv(saveDiv(data.symbolCount,NInterleaved), nSplits));
                 }
-                auto cutPositionsLength = getMaxActualLength(diffCutPositions);
-                auto symbolGroupIdsLength = getMaxActualLength(diffSymbolGroupIds);
+                auto cutPositionsLength = writer.getMaxActualLength(diffCutPositions);
+                auto symbolGroupIdsLength = writer.getMaxActualLength(diffSymbolGroupIds);
 
                 writer.template writeLength<int>(cutPositionsLength);
                 for (auto diffCutPosition: diffCutPositions) writer.writeData(diffCutPosition, cutPositionsLength);
@@ -60,15 +65,11 @@ namespace Recoil {
                         diffSymbolGroupIdsInSplit.push_back(startSymbolGroupId - it->minSymbolGroupId());
                     }
 
-                    auto symbolGroupIdsInSplitLength = getMaxActualLength(diffSymbolGroupIdsInSplit);
+                    auto symbolGroupIdsInSplitLength = writer.getMaxActualLength(diffSymbolGroupIdsInSplit);
                     writer.template writeLength<uint16_t>(symbolGroupIdsInSplitLength);
                     for (auto diffSymbolGroupIdInSplit: diffSymbolGroupIdsInSplit)
                         writer.writeData(diffSymbolGroupIdInSplit, symbolGroupIdsInSplitLength);
                 }
-            }
-
-            for (auto rans : data.finalRans) {
-                writer.writeData(rans.state, sizeof(RansStateType) * 8);
             }
 
             std::copy(writer.buf.begin(), writer.buf.end(), std::back_inserter(combinedBitstream));
@@ -90,12 +91,6 @@ namespace Recoil {
         MyRansSplitsMetadata metadata;
 
         BitsWriter<RansBitstreamType> writer;
-
-        template<typename T>
-        uint8_t getMaxActualLength(const std::vector<T> &arr) const {
-            return writer.getActualLength(*std::max_element(
-                    arr.begin(), arr.end(), [](const auto& a, const auto& b) { return abs(a) < abs(b); }));
-        }
 
         MyRansSplitsMetadata generateDefaultMetadata() {
             MyRansSplitsMetadata metadata{ EqualBitstreamLength, {} };

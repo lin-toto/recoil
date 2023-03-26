@@ -29,7 +29,7 @@ namespace Recoil {
         std::vector<MyRansCodedData> flushSplits(size_t nSplits) {
             std::vector<MyRansCodedData> results;
 
-            auto symbolsPerSplit = saveDiv<size_t>(dummyEncoder.symbols.size(), nSplits);
+            auto symbolsPerSplit = saveDiv<size_t>(dummyEncoder.symbolBuffer.size(), nSplits);
             for (int splitId = 0; splitId < nSplits; splitId++) {
                 MyRansEncoder enc(dummyEncoder.rans, pool);
                 auto symbols = (std::span{dummyEncoder.symbolBuffer}).subspan(

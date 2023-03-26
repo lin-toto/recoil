@@ -26,11 +26,15 @@ namespace Recoil {
             MyRansSplitsMetadata metadata;
             std::vector<int> diffCutPositions(1), minSymbolGroupIds(1);
 
+            for (auto &rans : data.finalRans)
+                rans.state = reader.template readData<RansStateType>(sizeof(RansStateType) * 8);
+
             size_t nSplits = reader.template read<uint16_t>();
             data.symbolCount = reader.template read<uint32_t>();
 
             metadata.splits.resize(nSplits);
             metadata.splits[0].startSymbolGroupIds.fill(0);
+            metadata.splits[0].intermediateRans = data.finalRans;
 
             if (nSplits > 1) {
                 auto cutPositionsLength = reader.template readLength<int>();
@@ -49,10 +53,6 @@ namespace Recoil {
                 }
             }
 
-            for (auto &rans : data.finalRans)
-                rans.state = reader.template readData<RansStateType>(sizeof(RansStateType) * 8);
-            metadata.splits[0].intermediateRans = data.finalRans;
-
             auto it = bitstream.begin() + reader.currentIteratorPosition() + 1;
 
             for (auto splitId = 1; splitId < nSplits; splitId++) {
@@ -65,6 +65,11 @@ namespace Recoil {
 
             data.leftPadding = it - bitstream.begin();
             data.bitstream = std::move(bitstream);
+            if (data.leftPadding < 16) {
+                // Pad the left-side of bitstream with 16-bytes per AVX-512 decoder requirement.
+                data.bitstream.insert(data.bitstream.begin(), 16 - data.leftPadding, 0x00);
+                data.leftPadding = 16;
+            }
 
             metadata.splits[0].cutPosition = data.getRealBitstream().size() - 1;
             for (auto splitId = 1; splitId < nSplits; splitId++) {

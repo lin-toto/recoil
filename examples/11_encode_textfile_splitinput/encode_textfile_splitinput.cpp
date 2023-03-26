@@ -3,8 +3,8 @@
 #include "profiling.h"
 
 #include "recoil/symbol_lookup/cdf_lut_pool.h"
-#include "recoil/split/rans_split_encoder.h"
-#include "recoil/split/bitstream_generation/splits_metadata_encoder.h"
+#include "recoil/split/rans_symbol_split_encoder.h"
+#include "recoil/split/bitstream_generation/symbol_splits_bitstream_encoder.h"
 
 #include <iostream>
 #include <vector>
@@ -38,35 +38,13 @@ int main(int argc, const char **argv) {
     CdfLutPool<CdfType, ValueType, ProbBits, LutGranularity> pool(cdfVec.size(), 0);
     auto cdfOffset = pool.insertCdf(cdfVec);
 
+    RansSymbolSplitEncoder enc((std::array<Rans32<ValueType, ProbBits>, NInterleaved>{}), pool);
     auto symbols = stringToSymbols<ValueType>(text);
+    enc.getEncoder().buffer(symbols, cdfOffset);
+    auto result = enc.flushSplits(nSplits);
 
-    auto symbolsPerSplit = saveDiv<size_t>(symbols.size(), nSplits);
-    std::vector<uint16_t> bitstream;
-
-    BitsWriter<uint16_t> writer;
-    std::vector<size_t> bitstreamLengths;
-    for (int splitId = 0; splitId < nSplits; splitId++) {
-        RansEncoder enc((std::array<Rans32<ValueType, ProbBits>, NInterleaved>{}), pool);
-        enc.buffer(std::span{symbols}.subspan(symbolsPerSplit * splitId, splitId == nSplits - 1 ? std::dynamic_extent : symbolsPerSplit), cdfOffset);
-        auto r = enc.flush();
-
-        for (auto rans : r.finalRans) writer.writeData(rans.state, 32);
-        std::copy(r.getRealBitstream().begin(), r.getRealBitstream().end(), std::back_inserter(bitstream));
-        bitstreamLengths.push_back(r.getRealBitstream().size());
-    }
-
-    std::vector<size_t> bitstreamLengthDiffs(bitstreamLengths.size());
-    std::transform(bitstreamLengths.begin(), bitstreamLengths.end(), bitstreamLengthDiffs.begin(), [&bitstream, nSplits] (auto l) {
-        return static_cast<int32_t>(l) - saveDiv<size_t>(bitstream.size(), nSplits);
-    });
-    auto len = writer.getActualLength(*std::max_element(
-            bitstreamLengthDiffs.begin(), bitstreamLengthDiffs.end(),
-            [](const auto& a, const auto& b) { return abs(a) < abs(b); }));;
-    writer.template writeLength<int32_t>(len);
-    for (auto bitstreamLengthDiff : bitstreamLengthDiffs)
-        writer.template writeData<int32_t>(bitstreamLengthDiff, len);
-    writer.template write<uint32_t>(symbols.size());
-    bitstream.insert(bitstream.begin(), writer.buf.begin(), writer.buf.end());
+    SymbolSplitsBitstreamEncoder metadataEnc(std::move(result));
+    auto bitstream = metadataEnc.combine();
 
     writeSpanToFile(outputPrefix + ".bin", std::span{bitstream});
     writeSpanToFile(outputPrefix + ".cdf", std::span{cdfVec});

@@ -65,6 +65,12 @@ namespace Recoil {
             return sizeof(WriteDataType) * 8 - std::countl_zero(static_cast<std::make_unsigned_t<WriteDataType>>(data));
         }
 
+        template<std::integral WriteDataType>
+        static uint8_t getMaxActualLength(const std::vector<WriteDataType> &arr) {
+            return getActualLength(*std::max_element(
+                    arr.begin(), arr.end(), [](const auto& a, const auto& b) { return abs(a) < abs(b); }));
+        }
+
         void reset() {
             buf.clear();
             currentBitPosition = sizeof(BufferDataType) * 8;
