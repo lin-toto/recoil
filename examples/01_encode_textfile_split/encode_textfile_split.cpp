@@ -51,7 +51,7 @@ int main(int argc, const char **argv) {
     SplitsMetadataEncoder metadataEnc(result.first, result.second);
     auto bitstream = metadataEnc.combine();
 
-    SplitsMetadataDecoder<uint16_t, uint8_t, uint32_t, uint16_t, ProbBits, 1u << 16, 16, NInterleaved> metadataDec(bitstream);
+    SplitsMetadataDecoder_Rans32<ValueType, ProbBits, NInterleaved> metadataDec(bitstream);
     auto result2 = metadataDec.decode();
 
     RansSplitDecoder dec(result2.first, result2.second, pool);

@@ -77,6 +77,12 @@ namespace Recoil {
         std::vector<RansBitstreamType> bitstream;
         BitsReader<RansBitstreamType> reader;
     };
+
+    template<std::unsigned_integral ValueType, uint8_t ProbBits, size_t NInterleaved>
+    using SplitsMetadataDecoder_Rans64 = SplitsMetadataDecoder<uint16_t, ValueType, uint64_t, uint32_t, ProbBits, 1ull << 31, 32, NInterleaved>;
+
+    template<std::unsigned_integral ValueType, uint8_t ProbBits, size_t NInterleaved>
+    using SplitsMetadataDecoder_Rans32 = SplitsMetadataDecoder<uint16_t, ValueType, uint32_t, uint16_t, ProbBits, 1u << 16, 16, NInterleaved>;
 }
 
 #endif //RECOIL_SPLITS_METADATA_DECODER_H
