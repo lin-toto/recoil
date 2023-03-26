@@ -47,6 +47,4 @@ link_directories(
         $ENV{LINK_DIR}
 )
 
-add_executable(test test.cpp)
-
 add_subdirectory(examples)

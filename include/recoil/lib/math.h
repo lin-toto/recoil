@@ -1,9 +1,11 @@
 #ifndef RECOIL_MATH_H
 #define RECOIL_MATH_H
 
+#include "recoil/lib/cuda/macros.h"
+
 namespace Recoil {
     template<class T>
-    constexpr T saveDiv(T a, T b) {
+    constexpr CUDA_HOST_DEVICE T saveDiv(T a, T b) {
         return (a + b - 1) / b;
     }
 

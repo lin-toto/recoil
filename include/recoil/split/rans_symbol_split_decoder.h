@@ -31,7 +31,7 @@ namespace Recoil {
 
         explicit RansSymbolSplitDecoder(std::vector<MyRansCodedData> data, const MyCdfLutPool &pool)
             : data(std::move(data)), pool(pool),
-              totalSymbolCount(std::accumulate(data.begin(), data.end(), 0, [](size_t len, auto &v) { return len + v.symbolCount; })),
+              totalSymbolCount(std::accumulate(data.begin(), data.end(), 0, [](size_t len, auto &d) { return len + d.symbolCount; })),
               result(totalSymbolCount) {}
 
         void decodeSplit(const size_t splitId, const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset) {
@@ -52,7 +52,8 @@ namespace Recoil {
             MyRansDecoder decoder(data[splitId].getRealBitstream().data(), data[splitId].finalRans, pool);
             auto offset = splitId * saveDiv<size_t>(totalSymbolCount, data.size());
             decoder.decode(
-                    allCdfOffsets.subspan(offset), allLutOffsets.subspan(offset),
+                    allCdfOffsets.subspan(offset, data[splitId].symbolCount),
+                    allLutOffsets.subspan(offset, data[splitId].symbolCount),
                     data[splitId].symbolCount, (std::span{result}).subspan(offset));
         }
     protected:

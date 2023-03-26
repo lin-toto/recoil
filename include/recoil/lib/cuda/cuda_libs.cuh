@@ -40,6 +40,18 @@ namespace Recoil {
         return allocAndCopyToGpu(span.data(), span.size_bytes());
     }
 
+    inline int estimateMaxOccupancy(void *func, int nThreads) {
+        int maxBlocks;
+        cudaCheck(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&maxBlocks, func, nThreads, 0));
+
+        int deviceID;
+        cudaDeviceProp props;
+
+        cudaGetDevice(&deviceID);
+        cudaGetDeviceProperties(&props, deviceID);
+        return maxBlocks * props.multiProcessorCount;
+    }
+
 }
 
 #endif //RECOIL_CUDA_LIBS_H
