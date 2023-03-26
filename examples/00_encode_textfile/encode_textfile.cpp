@@ -7,8 +7,8 @@
 #include "recoil/rans_decoder.h"
 #include "recoil/simd/rans_decoder_avx2_32x8n.h"
 #include "recoil/simd/rans_decoder_avx2_32x32.h"
-//#include "recoil/simd/rans_decoder_avx512_32x16n.h"
-//#include "recoil/simd/rans_decoder_avx512_32x32.h"
+#include "recoil/simd/rans_decoder_avx512_32x16n.h"
+#include "recoil/simd/rans_decoder_avx512_32x32.h"
 
 #include <iostream>
 #include <vector>
@@ -62,6 +62,15 @@ int main(int argc, const char **argv) {
         std::cout << "AVX2 Decoding success! Time: " << time << "us" << std::endl;
     } else {
         std::cerr << "AVX2 Decoding failed!" << std::endl;
+    }
+    std::cout << "Throughput: " << text.length() / (time / 1000000.0) / 1024 / 1024 << " MB/s" << std::endl;
+
+    RansDecoder_AVX512_32x32 decAVX512(result.getRealBitstream(), result.finalRans, pool);
+    time = timeIt([&]() { decoded = decAVX512.decode(cdfOffset, lutOffset, symbols.size()); });
+    if (std::equal(symbols.begin(), symbols.end(), decoded.begin())) {
+        std::cout << "AVX512 Decoding success! Time: " << time << "us" << std::endl;
+    } else {
+        std::cerr << "AVX512 Decoding failed!" << std::endl;
     }
     std::cout << "Throughput: " << text.length() / (time / 1000000.0) / 1024 / 1024 << " MB/s" << std::endl;
 

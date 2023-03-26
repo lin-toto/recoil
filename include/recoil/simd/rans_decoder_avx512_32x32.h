@@ -23,9 +23,9 @@ namespace Recoil {
             auto lutOffsetsSimd = u32x16_wrapper::toSimd(lutOffsets.data());
             auto [sym0, start0, freq0] = this->symbolLookupAvx.getSymbolInfo(cdfOffsetsSimd, lutOffsetsSimd, prob0);
 
-            cdfOffsetsSimd = u32x16_wrapper::toSimd(cdfOffsets.data() + 16);
-            lutOffsetsSimd = u32x16_wrapper::toSimd(lutOffsets.data() + 16);
-            auto [sym1, start1, freq1] = this->symbolLookupAvx.getSymbolInfo(cdfOffsetsSimd, lutOffsetsSimd, prob0);
+            cdfOffsetsSimd = u32x16_wrapper::toSimd(cdfOffsets.subspan(16).data());
+            lutOffsetsSimd = u32x16_wrapper::toSimd(lutOffsets.subspan(16).data());
+            auto [sym1, start1, freq1] = this->symbolLookupAvx.getSymbolInfo(cdfOffsetsSimd, lutOffsetsSimd, prob1);
 
             this->advanceSymbol(ransSimds[0], prob0, start0, freq0);
             this->advanceSymbol(ransSimds[1], prob1, start1, freq1);
@@ -34,13 +34,13 @@ namespace Recoil {
             this->renormSimd(ransSimds[1]);
 
             this->writeResult(sym0, output.data());
-            this->writeResult(sym1, output.data());
+            this->writeResult(sym1, output.data() + 16);
         }
     };
 
     template<std::unsigned_integral ValueType, uint8_t ProbBits, uint32_t RenormLowerBound, uint8_t LutGranularity>
     RansDecoder_AVX512_32x32(std::span<uint16_t>,
-                              std::array<Rans<uint16_t, ValueType, uint32_t, uint16_t, ProbBits, RenormLowerBound, 16>, 16>,
+                              std::array<Rans<uint16_t, ValueType, uint32_t, uint16_t, ProbBits, RenormLowerBound, 16>, 32>,
                               const CdfLutPool<uint16_t, ValueType, ProbBits, LutGranularity>&)
     -> RansDecoder_AVX512_32x32<ValueType, ProbBits, RenormLowerBound, LutGranularity>;
 }

@@ -39,14 +39,15 @@ namespace Recoil {
         }
 
         inline void renormSimd(u32x16 &ransSimd) override {
-            auto renormMask = _mm512_cmpgt_epu32_mask(_mm256_set1_epi32(RenormLowerBound), ransSimd);
+            const auto reverseMask = _mm512_set_epi32(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
+
+            auto renormMask = _mm512_cmpgt_epu32_mask(_mm512_set1_epi32(RenormLowerBound), ransSimd);
 
             auto renormCount = std::popcount(static_cast<unsigned int>(renormMask));
             auto bitstreamPtr = reinterpret_cast<const __m256i*>(&(*this->bitstreamReverseIt) - RansBatchSize + 1);
 
-            // Use _mm_loadu_si128 because it does not require memory alignment.
-            u32x16 nextBitstream = _mm512_cvtepu16_epi32(_mm256_loadu_si256(bitstreamPtr));
-            u32x16 nextStates = _mm512_maskz_expand_epi32(nextBitstream);
+            u32x16 nextBitstream = _mm512_permutevar_epi32(reverseMask, _mm512_cvtepu16_epi32(_mm256_loadu_si256(bitstreamPtr)));
+            u32x16 nextStates = _mm512_maskz_expand_epi32(renormMask, nextBitstream);
 
             ransSimd = _mm512_or_si512(_mm512_mask_slli_epi32(ransSimd, renormMask, ransSimd, WriteBits), nextStates);
 
@@ -55,8 +56,7 @@ namespace Recoil {
 
         inline void writeResult(const u32x16 symbolsSimd, ValueType *ptr) override {
             auto sym = _mm512_cvtepi32_epi8(symbolsSimd);
-            *reinterpret_cast<uint64_t*>(ptr) = _mm_extract_epi64(sym, 0);
-            *reinterpret_cast<uint64_t*>(ptr + 8) = _mm_extract_epi64(sym, 1);
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(ptr), sym);
         }
     };
 

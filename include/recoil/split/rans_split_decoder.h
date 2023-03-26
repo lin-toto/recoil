@@ -4,8 +4,8 @@
 #include "recoil/rans.h"
 #include "recoil/rans_coded_data.h"
 #include "recoil/rans_decoder.h"
-#include "recoil/simd/rans_decoder_avx2_32x8n.h"
 #include "recoil/simd/rans_decoder_avx2_32x32.h"
+#include "recoil/simd/rans_decoder_avx512_32x32.h"
 #include <span>
 
 namespace Recoil {
@@ -24,8 +24,8 @@ namespace Recoil {
         // TODO: allow any class derived from RansDecoder, from a template parameter
         //using MyRansDecoder = RansDecoder<
         //        CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, LutGranularity, NInterleaved>;
-        //using MyRansDecoder = RansDecoder_AVX2_32x8n<ValueType, ProbBits, RenormLowerBound, LutGranularity, NInterleaved>;
-        using MyRansDecoder = RansDecoder_AVX2_32x32<ValueType, ProbBits, RenormLowerBound, LutGranularity>;
+        //using MyRansDecoder = RansDecoder_AVX2_32x32<ValueType, ProbBits, RenormLowerBound, LutGranularity>;
+        using MyRansDecoder = RansDecoder_AVX512_32x32<ValueType, ProbBits, RenormLowerBound, LutGranularity>;
     public:
         std::vector<ValueType> result;
 
@@ -96,7 +96,7 @@ namespace Recoil {
         MyRansSplitsMetadata metadata;
         const MyCdfLutPool &pool;
 
-        inline bool syncRansOnce(MyRansDecoder& decoder, const MyRansSplitsMetadata::Split& currentSplit,
+        inline bool syncRansOnce(MyRansDecoder& decoder, const typename MyRansSplitsMetadata::Split& currentSplit,
                                  const size_t symbolGroupId, std::array<bool, NInterleaved>& ransInitializedState,
                                  const std::span<CdfLutOffsetType> cdfOffsets, const std::span<CdfLutOffsetType> lutOffsets) {
             bool ransAllInitialized = true;

@@ -7,6 +7,7 @@
 #include <vector>
 #include <concepts>
 #include <span>
+#include <algorithm>
 
 namespace Recoil::Examples {
     std::string readFile(const std::string &name, std::ios_base::openmode mode = std::ios_base::in);
