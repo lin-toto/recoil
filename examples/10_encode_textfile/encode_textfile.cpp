@@ -4,7 +4,7 @@
 
 #include "recoil/symbol_lookup/cdf_lut_pool.h"
 #include "recoil/split/rans_split_encoder.h"
-#include "recoil/split/metadata/splits_metadata_encoder.h"
+#include "recoil/split/bitstream_generation/splits_metadata_encoder.h"
 
 #include <iostream>
 #include <vector>
