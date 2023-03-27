@@ -6,7 +6,7 @@
 
 namespace Recoil::Examples {
     unsigned int timeIt(const std::function<void()>& func);
-    std::string jsonOutput(size_t originalSize, size_t compressedSize, unsigned int elapsed);
+    std::string jsonOutput(unsigned int nSplit, size_t originalSize, size_t compressedSize, unsigned int elapsed);
 }
 
 #endif //RECOIL_EXAMPLE_PROFILING_H

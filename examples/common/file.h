@@ -22,6 +22,7 @@ namespace Recoil::Examples {
     template<typename T>
     std::vector<T> readVectorFromFile(const std::string &name) {
         std::ifstream fin(name, std::ios::binary);
+        if (!fin.good()) [[unlikely]] throw std::runtime_error("Error reading vector file");
         fin.unsetf(std::ios::skipws);
 
         fin.seekg(0, std::ios::end);
@@ -29,11 +30,9 @@ namespace Recoil::Examples {
         fin.seekg(0, std::ios::beg);
 
         std::vector<T> vec;
-        vec.reserve(fileSize / sizeof(T));
+        vec.resize(fileSize / sizeof(T));
 
-        std::copy(std::istream_iterator<T>(fin),
-                  std::istream_iterator<T>(),
-                  std::back_inserter(vec));
+        fin.read(reinterpret_cast<char*>(vec.data()), fileSize);
 
         return vec;
     }

@@ -24,8 +24,8 @@ namespace Recoil {
         // TODO: allow any class derived from RansDecoder, from a template parameter
         //using MyRansDecoder = RansDecoder<
         //        CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, LutGranularity, NInterleaved>;
-        //using MyRansDecoder = RansDecoder_AVX2_32x32<ValueType, ProbBits, RenormLowerBound, LutGranularity>;
-        using MyRansDecoder = RansDecoder_AVX512_32x32<ValueType, ProbBits, RenormLowerBound, LutGranularity>;
+        using MyRansDecoder = RansDecoder_AVX2_32x32<ValueType, ProbBits, RenormLowerBound, LutGranularity>;
+        //using MyRansDecoder = RansDecoder_AVX512_32x32<ValueType, ProbBits, RenormLowerBound, LutGranularity>;
     public:
         std::vector<ValueType> result;
 
