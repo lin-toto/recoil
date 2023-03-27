@@ -2,6 +2,7 @@
 #define RECOIL_RANS_DECODER_H
 
 #include "recoil/rans.h"
+#include "recoil/symbol_lookup/symbol_lookup.h"
 #include <vector>
 #include <span>
 #include <array>

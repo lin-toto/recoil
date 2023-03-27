@@ -4,9 +4,11 @@
 #include "recoil/lib/cuda/macros.h"
 #include "recoil/lib/cuda/cuda_libs.cuh"
 #include "recoil/rans.h"
+#include "recoil/symbol_lookup/symbol_lookup.h"
+#include "rans_coded_data_cuda.h"
+
 #include <cuda/std/array>
 #include "device_launch_parameters.h"
-#include "rans_coded_data_cuda.h"
 
 namespace Recoil {
     template<std::unsigned_integral CdfType, std::unsigned_integral ValueType,

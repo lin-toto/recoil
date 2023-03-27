@@ -14,7 +14,7 @@
 using namespace Recoil;
 using namespace Recoil::Examples;
 
-const uint8_t ProbBits = 16;
+const uint8_t ProbBits = 12;
 const uint8_t LutGranularity = 1;
 const size_t NInterleaved = 32;
 

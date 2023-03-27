@@ -4,8 +4,8 @@
 #include "latch_backport.h"
 
 #include "recoil/symbol_lookup/cdf_lut_pool.h"
-#include "recoil/split/rans_split_decoder.h"
-#include "recoil/split/bitstream_generation/splits_metadata_decoder.h"
+#include "recoil/split/rans_symbol_split_decoder.h"
+#include "recoil/split/bitstream_generation/symbol_splits_bitstream_decoder.h"
 
 #include <iostream>
 #include <cstdint>
@@ -39,11 +39,11 @@ int main(int argc, const char **argv) {
     auto cdfOffset = pool.insertCdf(cdfVec);
     auto lutOffset = pool.insertLut(lutVec);
 
-    SplitsMetadataDecoder_Rans32<ValueType, ProbBits, NInterleaved> metadataDec(bitstream);
+    SymbolSplitsBitstreamDecoder_Rans32<ValueType, ProbBits, NInterleaved> metadataDec(bitstream);
     auto result = metadataDec.decode();
-    const auto nSplit = result.second.splits.size();
+    auto nSplit = result.size();
 
-    RansSplitDecoder dec(result.first, result.second, pool);
+    RansSymbolSplitDecoder dec(result, pool);
 
     Latch latch;
     std::vector<std::future<void>> tasks;

@@ -101,7 +101,6 @@ namespace Recoil {
                     pool.getCdfSize(),
                     reinterpret_cast<const MyCdfLutPool::MyLutItem *>(reinterpret_cast<const uint8_t*>(pool.getLutPool()) - pool.getPool() + poolBuf),
                     pool.getLutSize()) {
-            printf("%d\n", totalSymbolCount);
             cudaCheck(cudaMalloc(&outputBuffer, sizeof(ValueType) * totalSymbolCount));
             cudaCheck(cudaMalloc(&bitstreamOffsets, sizeof(uint32_t) * this->data.size()));
             cudaCheck(cudaMalloc(&finalRans, sizeof(RansStateType) * NInterleaved * this->data.size()));

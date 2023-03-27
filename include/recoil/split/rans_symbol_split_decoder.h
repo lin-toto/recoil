@@ -6,7 +6,7 @@
 #include "recoil/rans_coded_data.h"
 #include "recoil/rans_decoder.h"
 #include "recoil/simd/rans_decoder_avx2_32x32.h"
-#include "recoil/simd/rans_decoder_avx512_32x32.h"
+//#include "recoil/simd/rans_decoder_avx512_32x32.h"
 #include <span>
 #include <numeric>
 
