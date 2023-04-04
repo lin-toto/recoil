@@ -11,8 +11,9 @@ namespace Recoil::Examples {
         return duration.count();
     }
 
-    std::string jsonOutput(unsigned int nSplit, size_t originalSize, size_t compressedSize, unsigned int elapsed) {
+    std::string jsonOutput(bool correct, unsigned int nSplit, size_t originalSize, size_t compressedSize, unsigned int elapsed) {
         const char *jsonLiteral = R"({
+    "result_correct": %s,
     "n_splits": %u,
     "original_size_bytes": %llu,
     "compressed_size_bytes": %llu,
@@ -23,7 +24,7 @@ namespace Recoil::Examples {
         float throughput = originalSize / (elapsed / 1000000.0) / 1024 / 1024;
 
         char buf[200]; // Probably more than enough?
-        snprintf(buf, 200, jsonLiteral, nSplit, originalSize, compressedSize, elapsed, throughput);
+        snprintf(buf, 200, jsonLiteral, correct ? "true" : "false", nSplit, originalSize, compressedSize, elapsed, throughput);
 
         return buf;
     }

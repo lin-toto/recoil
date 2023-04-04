@@ -25,8 +25,8 @@ using CdfType = uint16_t;
 using ValueType = uint8_t;
 
 int main(int argc, const char **argv) {
-    if (argc != 3) {
-        std::cerr << "Usage: " << argv[0] << " [encoded_textfile] [cdf]" << std::endl;
+    if (argc != 4) {
+        std::cerr << "Usage: " << argv[0] << " [encoded_textfile] [cdf] [original_file]" << std::endl;
         return 1;
     }
 
@@ -45,12 +45,13 @@ int main(int argc, const char **argv) {
 
     RansSymbolSplitDecoder dec(result, pool);
 
-    Latch latch;
+    Latch latch, completeLatch(nSplit);
     std::vector<std::future<void>> tasks;
     for (int i = 0; i < nSplit; i++) {
-        tasks.push_back(std::async(std::launch::async, [i, &dec, &latch, cdfOffset, lutOffset] {
+        tasks.push_back(std::async(std::launch::async, [i, &dec, &latch, &completeLatch, cdfOffset, lutOffset] {
             latch.wait();
             dec.decodeSplit(i, cdfOffset, lutOffset);
+            completeLatch.count_down();
         }));
     }
 
@@ -58,10 +59,13 @@ int main(int argc, const char **argv) {
 
     auto timer = std::chrono::high_resolution_clock::now();
     latch.count_down();
-    for (int i = 0; i < nSplit; i++) tasks[i].wait();
+    completeLatch.wait();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - timer).count();
 
-    std::cout << jsonOutput(nSplit, dec.result.size(), bitstream.size() * sizeof(uint16_t), elapsed);
+    auto text = stringToSymbols<uint8_t>(readFile(argv[3]));
+    bool correct = std::equal(dec.result.begin(), dec.result.end(), text.begin());
+
+    std::cout << jsonOutput(correct, nSplit, dec.result.size(), bitstream.size() * sizeof(uint16_t), elapsed);
 
     return 0;
 }

@@ -22,7 +22,7 @@ namespace Recoil {
                 const SplitCuda<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, NInterleaved> &currentSplit,
                 const uint32_t symbolGroupId, uint32_t &ransInitFlag,
                 const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset) {
-            const int decoderId = threadIdx.x % NInterleaved;
+            const int decoderId = getDecoderId<NInterleaved>();
 
             if (!(ransInitFlag & (1 << decoderId))) {
                 if (currentSplit.startSymbolGroupIds[decoderId] == symbolGroupId) {
@@ -121,7 +121,8 @@ namespace Recoil {
                 }
             }
 
-            auto cdfLutOffset = NInterleaved * (currentSplit.maxSymbolGroupId() + 1 - currentSplit.minSymbolGroupId());;
+            auto cdfLutOffset = NInterleaved * (currentSplit.maxSymbolGroupId() + 1 - currentSplit.minSymbolGroupId());
+
             decoder.decode(allCdfOffsets + cdfLutOffset, allLutOffsets + cdfLutOffset, decodeEndSymbolId - decodeStartSymbolId);
         }
     }
@@ -167,7 +168,10 @@ namespace Recoil {
         }
 
         std::vector<ValueType> decodeAll(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset) {
-            auto start = std::chrono::high_resolution_clock::now();
+            cudaEvent_t start, stop;
+            cudaEventCreate(&start);
+            cudaEventCreate(&stop);
+            cudaEventRecord(start);
 
             SplitDecoderCuda::launchCudaDecode_staticCdf<
                     CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound,
@@ -175,11 +179,14 @@ namespace Recoil {
             <<<metadata.splits.size() / (NThreads / NInterleaved), NThreads>>>(
                     metadata.splits.size(), data.symbolCount, std::move(poolGpu),
                     bitstream, outputBuffer, splits, cdfOffset, lutOffset);
-            cudaDeviceSynchronize();
+            cudaEventRecord(stop);
+            cudaEventSynchronize(stop);
 
-            auto end = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-            lastDuration = duration.count();
+            float milliseconds = 0;
+            cudaEventElapsedTime(&milliseconds, start, stop);
+            lastDuration = milliseconds * 1000;
+            cudaEventDestroy(start);
+            cudaEventDestroy(stop);
 
             std::vector<ValueType> result;
             result.resize(data.symbolCount);
@@ -194,7 +201,10 @@ namespace Recoil {
 
             CUDA_DEVICE_PTR auto *allCdfOffsetsCuda = allocAndCopyToGpu(allCdfOffsets), *allLutOffsetsCuda = allocAndCopyToGpu(allLutOffsets);
 
-            auto start = std::chrono::high_resolution_clock::now();
+            cudaEvent_t start, stop;
+            cudaEventCreate(&start);
+            cudaEventCreate(&stop);
+            cudaEventRecord(start);
 
             SplitDecoderCuda::launchCudaDecode_multiCdf<
                     CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound,
@@ -202,14 +212,17 @@ namespace Recoil {
             <<<metadata.splits.size() / (NThreads / NInterleaved), NThreads>>>(
                     metadata.splits.size(), data.symbolCount, std::move(poolGpu),
                     bitstream, outputBuffer, splits, allCdfOffsetsCuda, allLutOffsetsCuda);
-            cudaDeviceSynchronize();
+            cudaEventRecord(stop);
+            cudaEventSynchronize(stop);
+
+            float milliseconds = 0;
+            cudaEventElapsedTime(&milliseconds, start, stop);
+            lastDuration = milliseconds * 1000;
+            cudaEventDestroy(start);
+            cudaEventDestroy(stop);
 
             cudaFree(allCdfOffsetsCuda);
             cudaFree(allLutOffsetsCuda);
-
-            auto end = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-            lastDuration = duration.count();
 
             std::vector<ValueType> result;
             result.resize(data.symbolCount);

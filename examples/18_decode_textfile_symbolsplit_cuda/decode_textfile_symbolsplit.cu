@@ -22,8 +22,8 @@ using CdfType = uint16_t;
 using ValueType = uint8_t;
 
 int main(int argc, const char **argv) {
-    if (argc != 3) {
-        std::cerr << "Usage: " << argv[0] << " [encoded_textfile] [cdf]" << std::endl;
+    if (argc != 4) {
+        std::cerr << "Usage: " << argv[0] << " [encoded_textfile] [cdf] [original_file]" << std::endl;
         return 1;
     }
 
@@ -43,8 +43,11 @@ int main(int argc, const char **argv) {
     RansSymbolSplitDecoderCuda splitDecoderCuda(result, pool);
     auto decoded = splitDecoderCuda.decodeAll(cdfOffset, lutOffset);
 
+    auto text = stringToSymbols<uint8_t>(readFile(argv[3]));
+    bool correct = std::equal(decoded.begin(), decoded.end(), text.begin());
+
     auto elapsed = splitDecoderCuda.getLastDuration();
-    std::cout << jsonOutput(nSplit, decoded.size(), bitstream.size() * sizeof(uint16_t), elapsed);
+    std::cout << jsonOutput(correct, nSplit, decoded.size(), bitstream.size() * sizeof(uint16_t), elapsed);
 
     return 0;
 }

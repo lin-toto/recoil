@@ -130,7 +130,10 @@ namespace Recoil {
         }
 
         std::vector<ValueType> decodeAll(const CdfLutOffsetType cdfOffset, const CdfLutOffsetType lutOffset) {
-            auto start = std::chrono::high_resolution_clock::now();
+            cudaEvent_t start, stop;
+            cudaEventCreate(&start);
+            cudaEventCreate(&stop);
+            cudaEventRecord(start);
 
             SymbolSplitDecoderCuda::launchCudaDecode_staticCdf<
                     CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound,
@@ -138,11 +141,14 @@ namespace Recoil {
             <<<data.size() / (NThreads / NInterleaved), NThreads>>>(
                     data.size(), totalSymbolCount, std::move(poolGpu),
                     bitstreams, bitstreamOffsets, finalRans, outputBuffer, cdfOffset, lutOffset);
-            cudaDeviceSynchronize();
+            cudaEventRecord(stop);
+            cudaEventSynchronize(stop);
 
-            auto end = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-            lastDuration = duration.count();
+            float milliseconds = 0;
+            cudaEventElapsedTime(&milliseconds, start, stop);
+            lastDuration = milliseconds * 1000;
+            cudaEventDestroy(start);
+            cudaEventDestroy(stop);
 
             std::vector<ValueType> result;
             result.resize(totalSymbolCount);
@@ -157,7 +163,10 @@ namespace Recoil {
 
             CUDA_DEVICE_PTR auto *allCdfOffsetsCuda = allocAndCopyToGpu(allCdfOffsets), *allLutOffsetsCuda = allocAndCopyToGpu(allLutOffsets);
 
-            auto start = std::chrono::high_resolution_clock::now();
+            cudaEvent_t start, stop;
+            cudaEventCreate(&start);
+            cudaEventCreate(&stop);
+            cudaEventRecord(start);
 
             SymbolSplitDecoderCuda::launchCudaDecode_multiCdf<
                     CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound,
@@ -165,14 +174,14 @@ namespace Recoil {
             <<<data.size() / (NThreads / NInterleaved), NThreads>>>(
                     data.size(), totalSymbolCount, std::move(poolGpu),
                     bitstreams, bitstreamOffsets, finalRans, outputBuffer, allCdfOffsetsCuda, allLutOffsetsCuda);
-            cudaDeviceSynchronize();
+            cudaEventRecord(stop);
+            cudaEventSynchronize(stop);
 
-            cudaFree(allCdfOffsetsCuda);
-            cudaFree(allLutOffsetsCuda);
-
-            auto end = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-            lastDuration = duration.count();
+            float milliseconds = 0;
+            cudaEventElapsedTime(&milliseconds, start, stop);
+            lastDuration = milliseconds * 1000;
+            cudaEventDestroy(start);
+            cudaEventDestroy(stop);
 
             std::vector<ValueType> result;
             result.resize(totalSymbolCount);
