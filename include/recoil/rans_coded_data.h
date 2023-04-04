@@ -46,6 +46,16 @@ namespace Recoil {
          * and startSymbolGroupIds is 0.
          */
         std::vector<Split> splits;
+
+        void reduceSplitCount(size_t count) {
+            auto step = saveDiv<size_t>(splits.size(), count);
+            auto i = 0;
+            splits.erase(std::remove_if(splits.begin(), splits.end(), [&i](auto) {
+                bool shouldRemove = (i % step) != 0;
+                i++;
+                return shouldRemove;
+            }), splits.end());
+        }
     };
 }
 
