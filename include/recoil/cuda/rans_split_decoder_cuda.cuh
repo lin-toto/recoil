@@ -159,7 +159,7 @@ namespace Recoil {
             splits = allocAndCopyToGpu(std::span{splitsLocal});
         }
 
-        int estimateMaxOccupancySplits() {
+        static int estimateMaxOccupancySplits() {
             return estimateMaxOccupancy(
                     reinterpret_cast<const void*>(SplitDecoderCuda::launchCudaDecode_staticCdf<
                             CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound,

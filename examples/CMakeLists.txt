@@ -17,14 +17,12 @@ function(recoil_example_add_executable NAME)
 endfunction()
 
 foreach(EXAMPLE
-        00_encode_decode_textfile
-        01_encode_decode_textfile_split
-        02_encode_decode_textfile_split_cuda
-        03_encode_decode_textfile_symbolsplit
-        04_encode_decode_textfile_symbolsplit_cuda
-
         10_encode_textfile
         11_encode_textfile_symbolsplit
+
+        12_combine_encoded_splits
+        13_detect_cuda_occupancy
+
         15_decode_textfile_split
         16_decode_textfile_split_cuda
         17_decode_textfile_symbolsplit

@@ -1,6 +1,7 @@
 #include "cdf_utils.h"
 #include "file.h"
 #include "profiling.h"
+#include "params.h"
 
 #include "recoil/symbol_lookup/cdf_lut_pool.h"
 #include "recoil/cuda/rans_symbol_split_decoder_cuda.cuh"
@@ -13,10 +14,6 @@
 
 using namespace Recoil;
 using namespace Recoil::Examples;
-
-const uint8_t ProbBits = 12;
-const uint8_t LutGranularity = 1;
-const size_t NInterleaved = 32;
 
 using CdfType = uint16_t;
 using ValueType = uint8_t;

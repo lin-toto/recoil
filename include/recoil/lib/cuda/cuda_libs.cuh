@@ -2,6 +2,7 @@
 #define RECOIL_CUDA_LIBS_H
 
 #include "macros.h"
+#include <stdexcept>
 
 namespace Recoil {
     template<size_t NInterleaved, size_t NThreads>

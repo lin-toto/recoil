@@ -2,6 +2,7 @@
 #include "file.h"
 #include "profiling.h"
 #include "latch_backport.h"
+#include "params.h"
 
 #include "recoil/symbol_lookup/cdf_lut_pool.h"
 #include "recoil/split/rans_symbol_split_decoder.h"
@@ -16,10 +17,6 @@
 using namespace Recoil;
 using namespace Recoil::Examples;
 using namespace std::chrono_literals;
-
-const uint8_t ProbBits = 12;
-const uint8_t LutGranularity = 1;
-const size_t NInterleaved = 32;
 
 using CdfType = uint16_t;
 using ValueType = uint8_t;

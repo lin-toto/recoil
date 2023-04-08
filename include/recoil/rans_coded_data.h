@@ -4,6 +4,7 @@
 #include <vector>
 #include <span>
 #include <concepts>
+#include "rans.h"
 
 namespace Recoil {
     template<std::unsigned_integral CdfType, std::unsigned_integral ValueType,
@@ -50,7 +51,7 @@ namespace Recoil {
         void reduceSplitCount(size_t count) {
             auto step = saveDiv<size_t>(splits.size(), count);
             auto i = 0;
-            splits.erase(std::remove_if(splits.begin(), splits.end(), [&i](auto) {
+            splits.erase(std::remove_if(splits.begin(), splits.end(), [&i, step](auto) {
                 bool shouldRemove = (i % step) != 0;
                 i++;
                 return shouldRemove;

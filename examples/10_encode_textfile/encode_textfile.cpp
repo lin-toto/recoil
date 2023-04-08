@@ -1,6 +1,7 @@
 #include "cdf_utils.h"
 #include "file.h"
 #include "profiling.h"
+#include "params.h"
 
 #include "recoil/symbol_lookup/cdf_lut_pool.h"
 #include "recoil/split/rans_split_encoder.h"
@@ -14,10 +15,6 @@
 using namespace Recoil;
 using namespace Recoil::Examples;
 
-const uint8_t ProbBits = 12;
-const uint8_t LutGranularity = 1;
-const size_t NInterleaved = 32;
-
 using CdfType = uint16_t;
 using ValueType = uint8_t;
 
@@ -28,7 +25,6 @@ int main(int argc, const char **argv) {
     }
 
     auto text = readFile(argv[1]);
-    std::cout << "File size: " << text.length() << " bytes" << std::endl;
 
     auto nSplits = std::stoull(argv[2]);
     auto outputPrefix = std::string(argv[3]);
@@ -46,7 +42,7 @@ int main(int argc, const char **argv) {
     SplitsMetadataEncoder metadataEnc(result.first, result.second);
     auto bitstream = metadataEnc.combine();
 
-    writeSpanToFile(outputPrefix + ".bin", std::span{bitstream});
+    writeSpanToFile(outputPrefix, std::span{bitstream});
     writeSpanToFile(outputPrefix + ".cdf", std::span{cdfVec});
 
     return 0;
