@@ -20,8 +20,8 @@ foreach(EXAMPLE
         10_encode_textfile
         11_encode_textfile_symbolsplit
 
-        12_combine_encoded_splits
-        13_detect_cuda_occupancy
+        01_combine_encoded_splits
+        02_detect_cuda_occupancy
 
         15_decode_textfile_split
         16_decode_textfile_split_cuda
