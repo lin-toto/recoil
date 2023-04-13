@@ -26,6 +26,8 @@ foreach(EXAMPLE
         15_decode_textfile_split
         16_decode_textfile_split_cuda
         17_decode_textfile_symbolsplit
-        18_decode_textfile_symbolsplit_cuda)
+        18_decode_textfile_symbolsplit_cuda
+
+        20_encode_lic)
     add_subdirectory(${EXAMPLE})
 endforeach()

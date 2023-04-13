@@ -37,6 +37,31 @@ namespace Recoil::Examples {
         return vec;
     }
 
+    template<typename T>
+    std::vector<T> readVectorFromTextStream(std::ifstream &fin, size_t count) {
+        std::vector<T> result(count);
+        for (auto i = 0; i < count; i++) fin >> result[i];
+        return result;
+    }
+
+    template<typename T>
+    std::vector<T> readVectorFromTextStream(std::ifstream &fin) {
+        std::vector<T> result;
+        while (!fin.eof()) {
+            T temp;
+            fin >> temp;
+            result.push_back(temp);
+        }
+        return result;
+    }
+
+    template<typename T>
+    std::vector<T> readVectorFromTextFile(const std::string &name) {
+        std::ifstream fin(name);
+        if (!fin.good()) [[unlikely]] throw std::runtime_error("Error reading vector text file");
+        return readVectorFromTextStream<T>(fin);
+    }
+
     template<std::unsigned_integral ValueType>
     std::vector<ValueType> stringToSymbols(const std::string &str) {
         std::vector<ValueType> symbols;
