@@ -17,17 +17,20 @@ function(recoil_example_add_executable NAME)
 endfunction()
 
 foreach(EXAMPLE
-        10_encode_textfile
-        11_encode_textfile_symbolsplit
-
         01_combine_encoded_splits
         02_detect_cuda_occupancy
+
+        10_encode_textfile
+        11_encode_textfile_symbolsplit
 
         15_decode_textfile_split
         16_decode_textfile_split_cuda
         17_decode_textfile_symbolsplit
         18_decode_textfile_symbolsplit_cuda
 
-        20_encode_lic)
+        20_encode_lic
+
+        25_decode_lic_split
+        26_decode_lic_split_cuda)
     add_subdirectory(${EXAMPLE})
 endforeach()

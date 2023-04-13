@@ -76,7 +76,7 @@ namespace Recoil {
 
                 bool ransAllInitialized = false;
                 for (size_t symbolGroupId = currentSplit.minSymbolGroupId(); !ransAllInitialized; symbolGroupId++) {
-                    size_t cdfLutOffset = NInterleaved * (symbolGroupId - currentSplit.minSymbolGroupId());
+                    size_t cdfLutOffset = NInterleaved * symbolGroupId;
                     ransAllInitialized = syncRansOnce(decoder, currentSplit, symbolGroupId, ransInitializedState,
                                                       allCdfOffsets.subspan(cdfLutOffset),
                                                       allLutOffsets.subspan(cdfLutOffset));
@@ -87,9 +87,9 @@ namespace Recoil {
             size_t decodeStartSymbolId = splitId == 0 ? 0 : NInterleaved * (currentSplit.maxSymbolGroupId() + 1);
             size_t decodeEndSymbolId = splitId == metadata.splits.size() - 1 ? data.symbolCount
                                                                              : NInterleaved * (1 + metadata.splits[splitId + 1].maxSymbolGroupId());
-            size_t cdfLutOffset = NInterleaved * (currentSplit.maxSymbolGroupId() + 1 - currentSplit.minSymbolGroupId());
-            decoder.decode(allCdfOffsets.subspan(cdfLutOffset), allLutOffsets.subspan(cdfLutOffset),
-                           decodeEndSymbolId - decodeStartSymbolId, resultSpan.subspan(decodeStartSymbolId));
+            decoder.decode(allCdfOffsets.subspan(decodeStartSymbolId, decodeEndSymbolId - decodeStartSymbolId),
+                           allLutOffsets.subspan(decodeStartSymbolId, decodeEndSymbolId - decodeStartSymbolId),
+                           resultSpan.subspan(decodeStartSymbolId));
         }
     protected:
         MyRansCodedData data;

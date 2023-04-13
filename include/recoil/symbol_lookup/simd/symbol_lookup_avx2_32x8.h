@@ -15,7 +15,7 @@ namespace Recoil {
         [[nodiscard]] inline u32x8 valueOnlyLutLookup(const u32x8 lutOffsets, const u32x8 probabilities) const override {
             const u32x8 symbolMask = _mm256_set1_epi32((1 << (8 * sizeof(ValueType))) - 1);
 
-            u32x8 offsets = _mm256_add_epi32(lutOffsets, probabilities);
+            u32x8 offsets = _mm256_add_epi32(lutOffsets, _mm256_srli_epi32(probabilities, LutGranularity - 1));
             u32x8 rawValues = _mm256_i32gather_epi32(reinterpret_cast<const int*>(this->lutPool), offsets, sizeof(MyLutItem));
             return _mm256_and_si256(rawValues, symbolMask);
         }

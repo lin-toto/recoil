@@ -69,11 +69,12 @@ namespace Recoil {
 
                 for (auto it = cdf.begin() + 1; it <= cdf.end(); it++) {
                     auto prob = it == cdf.end() ? (1 << ProbBits) : *it;
-                    std::fill(
-                            result.begin() + ((*(it - 1) + (1 << (LutGranularity - 1)) - 1) >> (LutGranularity - 1)),
-                            result.begin() + (prob >> (LutGranularity - 1)),
-                            MyLutItem(it - cdf.begin() - 1, *(it - 1), static_cast<CdfType>(prob - *(it - 1)))
-                    );
+                    auto l = (*(it - 1) + (1 << (LutGranularity - 1)) - 1) >> (LutGranularity - 1);
+                    auto r = prob >> (LutGranularity - 1);
+                    if (l <= r)
+                        std::fill(
+                            result.begin() + l, result.begin() + r,
+                            MyLutItem(it - cdf.begin() - 1, *(it - 1), static_cast<CdfType>(prob - *(it - 1))));
                 }
                 return result;
             }

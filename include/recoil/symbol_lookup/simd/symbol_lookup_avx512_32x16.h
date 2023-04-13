@@ -15,7 +15,7 @@ namespace Recoil {
         [[nodiscard]] inline u32x16 valueOnlyLutLookup(const u32x16 lutOffsets, const u32x16 probabilities) const override {
             const u32x16 symbolMask = _mm512_set1_epi32((1 << (8 * sizeof(ValueType))) - 1);
 
-            u32x16 offsets = _mm512_add_epi32(lutOffsets, probabilities);
+            u32x16 offsets = _mm512_add_epi32(lutOffsets, _mm512_srli_epi32(probabilities, LutGranularity - 1));
             u32x16 rawValues = _mm512_i32gather_epi32(offsets, reinterpret_cast<const int*>(this->lutPool), sizeof(MyLutItem));
             return _mm512_and_si512(rawValues, symbolMask);
         }

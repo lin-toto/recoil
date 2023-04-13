@@ -115,15 +115,13 @@ namespace Recoil {
             if (splitId != 0) {
                 uint32_t ransInitFlag = 0x00;
                 for (uint32_t symbolGroupId = currentSplit.minSymbolGroupId; ransInitFlag != 0xffffffff; symbolGroupId++) {
-                    auto cdfLutOffset = NInterleaved * (symbolGroupId - currentSplit.minSymbolGroupId()) + decoderId;
+                    auto cdfLutOffset = NInterleaved * symbolGroupId + decoderId;
                     syncRansOnce(decoder, currentSplit, symbolGroupId, ransInitFlag,
                                  allCdfOffsets[cdfLutOffset], allLutOffsets[cdfLutOffset]);
                 }
             }
 
-            auto cdfLutOffset = NInterleaved * (currentSplit.maxSymbolGroupId() + 1 - currentSplit.minSymbolGroupId());
-
-            decoder.decode(allCdfOffsets + cdfLutOffset, allLutOffsets + cdfLutOffset, decodeEndSymbolId - decodeStartSymbolId);
+            decoder.decode(allCdfOffsets + decodeStartSymbolId, allLutOffsets + decodeStartSymbolId, decodeEndSymbolId - decodeStartSymbolId);
         }
     }
 

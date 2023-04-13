@@ -27,9 +27,9 @@ int main(int argc, const char **argv) {
     auto imgSymbols = readVectorFromTextFile<ValueType>(argv[1]);
     auto rawCdfIndices = readVectorFromTextFile<ValueType>(argv[2]);
 
-    CdfLutPool<CdfType, ValueType, ProbBits, LutGranularity> pool(40000, (1 << (ProbBits - LutGranularity + 1)) * 65); // Just give it enough memory
+    CdfLutPool<CdfType, ValueType, ProbBits, LutGranularity> pool(40000, 0); // Just give it enough memory
 
-    std::vector<CdfLutOffsetType> cdfIndicesMap, lutIndicesMap;
+    std::vector<CdfLutOffsetType> cdfIndicesMap;
     std::ifstream cdfTxt(argv[3]);
     if (!cdfTxt.good()) [[unlikely]] throw std::runtime_error("Error reading cdf text file");
     while (!cdfTxt.eof()) {
@@ -37,13 +37,8 @@ int main(int argc, const char **argv) {
         cdfTxt >> count;
 
         auto cdfVec = readVectorFromTextStream<CdfType>(cdfTxt, count);
-        auto lutVec = LutBuilder<CdfType, ValueType, ProbBits, LutGranularity>::buildLut(std::span{cdfVec});
-
         auto cdfIndex = pool.insertCdf(cdfVec);
-        auto lutIndex = pool.insertLut(lutVec);
-
         cdfIndicesMap.push_back(cdfIndex);
-        lutIndicesMap.push_back(lutIndex);
     }
     std::vector<CdfLutOffsetType> cdfIndices(rawCdfIndices.size());
     std::transform(rawCdfIndices.begin(), rawCdfIndices.end(), cdfIndices.begin(), [&cdfIndicesMap](auto v) {
