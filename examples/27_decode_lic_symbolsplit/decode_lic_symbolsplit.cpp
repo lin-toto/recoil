@@ -5,8 +5,8 @@
 #include "params.h"
 
 #include "recoil/symbol_lookup/cdf_lut_pool.h"
-#include "recoil/split/rans_split_decoder.h"
-#include "recoil/split/bitstream_generation/splits_metadata_decoder.h"
+#include "recoil/split/rans_symbol_split_decoder.h"
+#include "recoil/split/bitstream_generation/symbol_splits_bitstream_decoder.h"
 
 #include <iostream>
 #include <cstdint>
@@ -49,29 +49,41 @@ int main(int argc, const char **argv) {
         lutIndicesMap.push_back(lutIndex);
     }
     pool.insertCdf({0});
-    auto cdfLutSize = rawCdfIndices.size();
-    auto *cdfIndices = new (std::align_val_t(32)) CdfLutOffsetType[cdfLutSize];
-    auto *lutIndices = new (std::align_val_t(32)) CdfLutOffsetType[cdfLutSize];
-    std::transform(rawCdfIndices.begin(), rawCdfIndices.end(), cdfIndices, [&cdfIndicesMap](auto v) {
+    std::vector<CdfLutOffsetType> cdfIndices(rawCdfIndices.size()), lutIndices(rawCdfIndices.size());
+    std::transform(rawCdfIndices.begin(), rawCdfIndices.end(), cdfIndices.begin(), [&cdfIndicesMap](auto v) {
         return cdfIndicesMap[v];
     });
-    std::transform(rawCdfIndices.begin(), rawCdfIndices.end(), lutIndices, [&lutIndicesMap](auto v) {
+    std::transform(rawCdfIndices.begin(), rawCdfIndices.end(), lutIndices.begin(), [&lutIndicesMap](auto v) {
         return lutIndicesMap[v];
     });
 
-    SplitsMetadataDecoder_Rans32<ValueType, ProbBits, NInterleaved> metadataDec(bitstream);
+    SymbolSplitsBitstreamDecoder_Rans32<ValueType, ProbBits, NInterleaved> metadataDec(bitstream);
     auto result = metadataDec.decode();
-    const auto nSplit = result.second.splits.size();
+    const auto nSplit = result.size();
 
-    RansSplitDecoder dec(result.first, result.second, pool);
+    RansSymbolSplitDecoder dec(result, pool);
 
     Latch latch, completeLatch(nSplit);
     std::vector<std::future<void>> tasks;
     for (int i = 0; i < nSplit; i++) {
-        tasks.push_back(std::async(std::launch::async, [i, &dec, &latch, &completeLatch, &cdfIndices, &lutIndices, cdfLutSize] {
+        tasks.push_back(std::async(std::launch::async,
+                                   [i, nSplit, &dec, &latch, &completeLatch, &cdfIndices, &lutIndices, &result] {
+            auto symbolCount = result[i].symbolCount;
+            auto *myCdfIndices = new (std::align_val_t(32)) CdfLutOffsetType[symbolCount];
+            auto *myLutIndices = new (std::align_val_t(32)) CdfLutOffsetType[symbolCount];
+
+            auto offset = result[0].symbolCount * i;
+            std::copy(cdfIndices.begin() + offset, cdfIndices.begin() + offset + symbolCount, myCdfIndices);
+            std::copy(lutIndices.begin() + offset, lutIndices.begin() + offset + symbolCount, myLutIndices);
+
             latch.wait();
-            dec.decodeSplit(i, std::span{cdfIndices, cdfLutSize}, std::span{lutIndices, cdfLutSize});
+            dec.decodeSplit(i,
+                            std::span{myCdfIndices, symbolCount},
+                            std::span{myLutIndices, symbolCount});
             completeLatch.count_down();
+
+            delete[] myCdfIndices;
+            delete[] myLutIndices;
         }));
     }
 
@@ -81,9 +93,6 @@ int main(int argc, const char **argv) {
     latch.count_down();
     completeLatch.wait();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - timer).count();
-
-    delete[] cdfIndices;
-    delete[] lutIndices;
 
     auto imgSymbols = readVectorFromTextFile<ValueType>(argv[4]);
     bool correct = std::equal(dec.result.begin(), dec.result.end(), imgSymbols.begin());

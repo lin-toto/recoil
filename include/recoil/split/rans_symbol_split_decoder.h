@@ -44,18 +44,12 @@ namespace Recoil {
                     (std::span{result}).subspan(outOffset));
         }
 
-        void decodeSplit(size_t splitId, const std::span<CdfLutOffsetType> allCdfOffsets, const std::span<CdfLutOffsetType> allLutOffsets) {
-            const auto totalSymbolCount = result.size();
+        void decodeSplit(size_t splitId, const std::span<CdfLutOffsetType> splitCdfOffsets, const std::span<CdfLutOffsetType> splitLutOffsets) {
             if (splitId >= data.size()) [[unlikely]] throw std::runtime_error("Invalid splitId");
-            if (allCdfOffsets.size() != allLutOffsets.size()) [[unlikely]] throw std::runtime_error("CDF and LUT offset length mismatch");
-            if (allCdfOffsets.size() != totalSymbolCount) [[unlikely]] throw std::runtime_error("Need the full CDF");
 
-            MyRansDecoder decoder(data[splitId].getRealBitstream().data(), data[splitId].finalRans, pool);
-            auto offset = splitId * saveDiv<size_t>(totalSymbolCount, data.size());
-            decoder.decode(
-                    allCdfOffsets.subspan(offset, data[splitId].symbolCount),
-                    allLutOffsets.subspan(offset, data[splitId].symbolCount),
-                    data[splitId].symbolCount, (std::span{result}).subspan(offset));
+            MyRansDecoder decoder(data[splitId].getRealBitstream(), data[splitId].finalRans, pool);
+            auto offset = splitId * saveDiv<size_t>(result.size(), data.size());
+            decoder.decode(splitCdfOffsets, splitLutOffsets, (std::span{result}).subspan(offset));
         }
     protected:
         std::vector<MyRansCodedData> data;

@@ -55,7 +55,7 @@ namespace Recoil {
                 CdfLutPool<CdfType, ValueType, ProbBits, LutGranularity> pool,
                 CUDA_DEVICE_PTR const RansBitstreamType *bitstreams,
                 CUDA_DEVICE_PTR const uint32_t *bitstreamOffsets,
-                CUDA_DEVICE_PTR const RansStateType *rans,
+                CUDA_DEVICE_PTR const Rans<CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits> *rans,
                 CUDA_DEVICE_PTR ValueType *outputBuffer,
                 const CdfLutOffsetType allCdfOffsets[],
                 const CdfLutOffsetType allLutOffsets[]
@@ -159,9 +159,8 @@ namespace Recoil {
 
         std::vector<ValueType> decodeAll(const std::span<CdfLutOffsetType> allCdfOffsets, const std::span<CdfLutOffsetType> allLutOffsets) {
             if (allCdfOffsets.size() != allLutOffsets.size()) [[unlikely]] throw std::runtime_error("CDF and LUT offset length mismatch");
-            if (allCdfOffsets.size() != data.symbolCount) [[unlikely]] throw std::runtime_error("Need the full CDF");
 
-            CUDA_DEVICE_PTR auto *allCdfOffsetsCuda = allocAndCopyToGpu(allCdfOffsets), *allLutOffsetsCuda = allocAndCopyToGpu(allLutOffsets);
+            CUDA_DEVICE_PTR const auto *allCdfOffsetsCuda = allocAndCopyToGpu(allCdfOffsets), *allLutOffsetsCuda = allocAndCopyToGpu(allLutOffsets);
 
             cudaEvent_t start, stop;
             cudaEventCreate(&start);
