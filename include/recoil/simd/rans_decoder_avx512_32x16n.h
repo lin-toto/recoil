@@ -55,8 +55,13 @@ namespace Recoil {
         }
 
         inline void writeResult(const u32x16 symbolsSimd, ValueType *ptr) override {
-            auto sym = _mm512_cvtepi32_epi8(symbolsSimd);
-            _mm_storeu_si128(reinterpret_cast<__m128i*>(ptr), sym);
+            if constexpr (sizeof(ValueType) == 1) {
+                auto sym = _mm512_cvtepi32_epi8(symbolsSimd);
+                _mm_storeu_si128(reinterpret_cast<__m128i *>(ptr), sym);
+            } else {
+                auto sym = _mm512_cvtepi32_epi16(symbolsSimd);
+                _mm256_storeu_si256(reinterpret_cast<__m256i *>(ptr), sym);
+            }
         }
     };
 
