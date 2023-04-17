@@ -6,6 +6,7 @@
 #include "recoil/rans_coded_data.h"
 #include "recoil/rans_encoder.h"
 #include <vector>
+#include <iostream>
 
 namespace Recoil {
     template<std::unsigned_integral CdfType, std::unsigned_integral ValueType,
@@ -30,15 +31,14 @@ namespace Recoil {
             std::vector<MyRansCodedData> results;
 
             auto symbolsPerSplit = saveDiv<size_t>(dummyEncoder.symbolBuffer.size(), nSplits);
-            for (int splitId = 0; splitId < nSplits; splitId++) {
+            for (int splitId = 0; splitId < nSplits && symbolsPerSplit * splitId < dummyEncoder.symbolBuffer.size(); splitId++) {
                 MyRansEncoder enc(dummyEncoder.rans, pool);
                 auto symbols = (std::span{dummyEncoder.symbolBuffer}).subspan(
                         symbolsPerSplit * splitId,
-                        splitId == nSplits - 1 ? std::dynamic_extent : symbolsPerSplit);
+                        symbolsPerSplit * (splitId + 1) >= dummyEncoder.symbolBuffer.size() ? std::dynamic_extent : symbolsPerSplit);
 
                 std::copy(symbols.begin(), symbols.end(), std::back_inserter(enc.symbolBuffer));
-
-                results.push_back(enc.flush());
+                if (symbols.size() > 0) results.push_back(enc.flush());
             }
 
             return results;

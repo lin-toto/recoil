@@ -57,5 +57,7 @@ int main(int argc, const char **argv) {
 
     writeSpanToFile(outputPrefix, std::span{bitstream});
 
+    std::cout << "{\"original_size_bytes\": " << imgSymbols.size() * 2 <<"}" << std::endl;
+
     return 0;
 }
