@@ -65,7 +65,7 @@ namespace Recoil {
 
             const auto perSplitSymbolCount = saveDiv<uint32_t>(totalSymbolCount, nSplits);
             const auto splitId = getSplitId<NInterleaved, NThreads>(), decoderId = getDecoderId<NInterleaved>();
-            if (splitId >= nSplits) return;
+            if (perSplitSymbolCount * splitId >= totalSymbolCount) return;
 
             RansDecoderCuda decoder(
                     bitstreams, bitstreamOffsets[splitId],
@@ -74,7 +74,8 @@ namespace Recoil {
 
             decoder.decode(allCdfOffsets + perSplitSymbolCount * splitId,
                            allLutOffsets + perSplitSymbolCount * splitId,
-                           splitId == nSplits - 1 ? totalSymbolCount - (perSplitSymbolCount * (nSplits - 1)) : perSplitSymbolCount);
+                           perSplitSymbolCount * (splitId + 1) >= totalSymbolCount ?
+                                totalSymbolCount - perSplitSymbolCount * splitId : perSplitSymbolCount);
         }
     }
 

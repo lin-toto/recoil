@@ -31,14 +31,18 @@ namespace Recoil {
             std::vector<MyRansCodedData> results;
 
             auto symbolsPerSplit = saveDiv<size_t>(dummyEncoder.symbolBuffer.size(), nSplits);
-            for (int splitId = 0; splitId < nSplits && symbolsPerSplit * splitId < dummyEncoder.symbolBuffer.size(); splitId++) {
-                MyRansEncoder enc(dummyEncoder.rans, pool);
-                auto symbols = (std::span{dummyEncoder.symbolBuffer}).subspan(
-                        symbolsPerSplit * splitId,
-                        symbolsPerSplit * (splitId + 1) >= dummyEncoder.symbolBuffer.size() ? std::dynamic_extent : symbolsPerSplit);
+            for (int splitId = 0; splitId < nSplits; splitId++) {
+                if (symbolsPerSplit * splitId < dummyEncoder.symbolBuffer.size()) {
+                    MyRansEncoder enc(dummyEncoder.rans, pool);
 
-                std::copy(symbols.begin(), symbols.end(), std::back_inserter(enc.symbolBuffer));
-                if (symbols.size() > 0) results.push_back(enc.flush());
+                    auto symbols = (std::span{dummyEncoder.symbolBuffer}).subspan(
+                            symbolsPerSplit * splitId,
+                            symbolsPerSplit * (splitId + 1) >= dummyEncoder.symbolBuffer.size() ? std::dynamic_extent
+                                                                                                : symbolsPerSplit);
+
+                    std::copy(symbols.begin(), symbols.end(), std::back_inserter(enc.symbolBuffer));
+                    results.push_back(enc.flush());
+                } else results.push_back(MyRansCodedData{});
             }
 
             return results;
