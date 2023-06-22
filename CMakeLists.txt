@@ -3,13 +3,15 @@ project(recoil LANGUAGES CXX)
 
 include(CheckCXXCompilerFlag)
 
+set(FLAGS "" CACHE STRING "Custom compile options.")
+
 find_package(CUDA)
 if(CUDA_FOUND)
     enable_language(CUDA)
     if(NOT DEFINED CMAKE_CUDA20_STANDARD_COMPILE_OPTION)
         set(CMAKE_CUDA20_STANDARD_COMPILE_OPTION "")
         set(CMAKE_CUDA20_EXTENSION_COMPILE_OPTION "")
-        set(CMAKE_CUDA_FLAGS "-std=c++20")
+        set(CMAKE_CUDA_FLAGS "-std=c++20 ${FLAGS}")
 
         set(CMAKE_CUDA_STANDARD 20)
         set(CMAKE_CUDA_STANDARD_REQUIRED TRUE)
@@ -27,7 +29,7 @@ endif()
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
-set(CMAKE_CXX_FLAGS "-pthread")
+set(CMAKE_CXX_FLAGS "-pthread ${FLAGS}")
 
 CHECK_CXX_COMPILER_FLAG("-march=native" COMPILER_SUPPORTS_MARCH_NATIVE)
 if(COMPILER_SUPPORTS_MARCH_NATIVE)
