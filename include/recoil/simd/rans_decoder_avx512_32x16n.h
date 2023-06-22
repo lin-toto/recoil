@@ -46,7 +46,7 @@ namespace Recoil {
             auto renormCount = std::popcount(static_cast<unsigned int>(renormMask));
             auto bitstreamPtr = reinterpret_cast<const __m256i*>(&(*this->bitstreamReverseIt) - RansBatchSize + 1);
 
-            u32x16 nextBitstream = _mm512_permutevar_epi32(reverseMask, _mm512_cvtepu16_epi32(_mm256_loadu_si256(bitstreamPtr)));
+            u32x16 nextBitstream = _mm512_permutexvar_epi32(reverseMask, _mm512_cvtepu16_epi32(_mm256_loadu_si256(bitstreamPtr)));
             u32x16 nextStates = _mm512_maskz_expand_epi32(renormMask, nextBitstream);
 
             ransSimd = _mm512_or_si512(_mm512_mask_slli_epi32(ransSimd, renormMask, ransSimd, WriteBits), nextStates);
