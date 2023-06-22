@@ -69,8 +69,8 @@ int main(int argc, const char **argv) {
         tasks.push_back(std::async(std::launch::async,
                                    [i, nSplit, &dec, &latch, &completeLatch, &cdfIndices, &lutIndices, &result] {
             auto symbolCount = result[i].symbolCount;
-            auto *myCdfIndices = new (std::align_val_t(32)) CdfLutOffsetType[symbolCount];
-            auto *myLutIndices = new (std::align_val_t(32)) CdfLutOffsetType[symbolCount];
+            auto *myCdfIndices = new (std::align_val_t(64)) CdfLutOffsetType[symbolCount];
+            auto *myLutIndices = new (std::align_val_t(64)) CdfLutOffsetType[symbolCount];
 
             auto offset = result[0].symbolCount * i;
             std::copy(cdfIndices.begin() + offset, cdfIndices.begin() + offset + symbolCount, myCdfIndices);
