@@ -6,9 +6,12 @@
 #include "recoil/rans_coded_data.h"
 #include "recoil/rans_decoder.h"
 #include "recoil/simd/rans_decoder_avx2_32x32.h"
-//#include "recoil/simd/rans_decoder_avx512_32x32.h"
 #include <span>
 #include <numeric>
+
+#ifdef AVX512
+#include "recoil/simd/rans_decoder_avx512_32x32.h"
+#endif
 
 namespace Recoil {
     template<std::unsigned_integral CdfType, std::unsigned_integral ValueType,
@@ -24,8 +27,11 @@ namespace Recoil {
         // TODO: allow any class derived from RansDecoder, from a template parameter
         //using MyRansDecoder = RansDecoder<
         //        CdfType, ValueType, RansStateType, RansBitstreamType, ProbBits, RenormLowerBound, WriteBits, LutGranularity, NInterleaved>;
+#ifdef AVX512
+        using MyRansDecoder = RansDecoder_AVX512_32x32<ValueType, ProbBits, RenormLowerBound, LutGranularity>;
+#else
         using MyRansDecoder = RansDecoder_AVX2_32x32<ValueType, ProbBits, RenormLowerBound, LutGranularity>;
-        //using MyRansDecoder = RansDecoder_AVX512_32x32<ValueType, ProbBits, RenormLowerBound, LutGranularity>;
+#endif
     public:
         std::vector<ValueType> result;
 
