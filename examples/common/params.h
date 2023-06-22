@@ -6,7 +6,7 @@
 #ifdef PROB_BITS
 const uint8_t ProbBits = PROB_BITS;
 #else
-const uint8_t ProbBits = 16;
+const uint8_t ProbBits = 11;
 #endif
 
 #ifdef LUT_GRANULARITY
